@@ -1,4 +1,5 @@
 import { loginAsUser } from "@/app/actions";
+import { PendingButton } from "@/app/components/pending-button";
 import { prisma } from "@/lib/prisma";
 
 const roleLabels: Record<string, string> = {
@@ -40,9 +41,9 @@ export default async function LoginPage() {
               <span>{roleLabels[user.role]}</span>
               <strong>{user.name}</strong>
               <small>{user.email}</small>
-              <button className="primary-button" type="submit">
+              <PendingButton className="primary-button" pendingLabel="Entrando...">
                 Entrar como {roleLabels[user.role]}
-              </button>
+              </PendingButton>
             </form>
           ))}
         </div>

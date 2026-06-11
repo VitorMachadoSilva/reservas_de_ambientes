@@ -243,6 +243,41 @@ export async function rejectReservationRequest(formData: FormData) {
   redirect("/aprovacoes?toast=solicitacao-recusada");
 }
 
+export async function cancelOwnPendingReservation(formData: FormData) {
+  const requestId = requiredString(formData, "requestId");
+  const requesterId = requiredString(formData, "requesterId");
+  const decisionNoteValue = formData.get("decisionNote");
+  const decisionNote =
+    typeof decisionNoteValue === "string" ? decisionNoteValue.trim() : "";
+
+  if (!decisionNote) {
+    redirect("/minhas-reservas?toast=motivo-cancelamento-obrigatorio");
+  }
+
+  const request = await prisma.reservationRequest.findUniqueOrThrow({
+    where: { id: requestId },
+  });
+
+  if (request.requesterId !== requesterId) {
+    redirect("/minhas-reservas?toast=sem-permissao-cancelamento");
+  }
+
+  if (request.status !== RequestStatus.PENDENTE) {
+    redirect("/minhas-reservas?toast=cancelamento-indisponivel");
+  }
+
+  await prisma.reservationRequest.update({
+    where: { id: requestId },
+    data: {
+      status: RequestStatus.CANCELADA,
+      decisionNote,
+    },
+  });
+
+  revalidateAppPaths();
+  redirect("/minhas-reservas?toast=reserva-cancelada");
+}
+
 export async function createCourse(formData: FormData) {
   const name = requiredString(formData, "name");
   const code = requiredString(formData, "code").toUpperCase();

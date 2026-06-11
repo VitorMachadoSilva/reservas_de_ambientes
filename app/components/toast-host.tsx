@@ -86,6 +86,21 @@ const toastMessages: Record<string, ToastTemplate> = {
     description: "Selecione um usuario com perfil de aprovador ou administrador.",
     tone: "error",
   },
+  "motivo-cancelamento-obrigatorio": {
+    title: "Motivo obrigatorio",
+    description: "Informe o motivo para cancelar uma solicitacao pendente.",
+    tone: "error",
+  },
+  "sem-permissao-cancelamento": {
+    title: "Cancelamento nao permitido",
+    description: "Voce so pode cancelar solicitacoes feitas pelo seu usuario.",
+    tone: "error",
+  },
+  "cancelamento-indisponivel": {
+    title: "Cancelamento indisponivel",
+    description: "Somente solicitacoes pendentes podem ser canceladas pelo docente.",
+    tone: "error",
+  },
   "solicitacao-enviada": {
     title: "Solicitacao enviada",
     description: "Ela foi encaminhada para aprovacao e ja aparece em Minhas Reservas.",
@@ -99,6 +114,11 @@ const toastMessages: Record<string, ToastTemplate> = {
   "solicitacao-recusada": {
     title: "Solicitacao recusada",
     description: "O motivo informado ficou registrado para acompanhamento do docente.",
+    tone: "info",
+  },
+  "reserva-cancelada": {
+    title: "Solicitacao cancelada",
+    description: "O cancelamento foi registrado com o motivo informado.",
     tone: "info",
   },
   "curso-criado": {
@@ -193,7 +213,7 @@ function ToastCard({
   useEffect(() => {
     const timeout = window.setTimeout(() => {
       onClose(toast.id);
-    }, 5000);
+    }, 3000);
 
     return () => window.clearTimeout(timeout);
   }, [onClose, toast.id]);

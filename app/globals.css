@@ -222,6 +222,16 @@ button:disabled {
   opacity: 0.55;
 }
 
+.spin-icon {
+  animation: spin 800ms linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .app-shell {
   display: grid;
   grid-template-columns: 280px minmax(0, 1fr);
@@ -1251,6 +1261,34 @@ textarea:focus {
   border-top: 1px solid var(--line);
 }
 
+.decision-note {
+  color: var(--muted);
+}
+
+.decision-note.aprovada {
+  color: var(--success);
+}
+
+.decision-note.recusada,
+.decision-note.cancelada {
+  color: var(--danger);
+}
+
+.cancel-reservation-form {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto;
+  gap: 10px;
+  grid-column: 1 / -1;
+  align-items: center;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.compact-heading {
+  margin-top: 20px;
+  margin-bottom: 12px;
+}
+
 .registrations-page {
   display: grid;
   gap: 20px;
@@ -1544,6 +1582,7 @@ textarea:focus {
   .review-panel,
   .reservation-row,
   .agenda-controls,
+  .cancel-reservation-form,
   .approval-actions,
   .environment-grid,
   .metrics-grid,

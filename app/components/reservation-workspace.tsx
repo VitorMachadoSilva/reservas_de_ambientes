@@ -3,6 +3,7 @@
 import {
   approveReservationRequest,
   assignCourseApprover,
+  cancelOwnPendingReservation,
   createClassGroup,
   createCourse,
   createDiscipline,
@@ -30,6 +31,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { PendingButton } from "./pending-button";
 import { useEffect, useMemo, useState } from "react";
 
 type View =
@@ -330,10 +332,14 @@ function Sidebar({
       </nav>
 
       <form action={logoutUser} className="logout-form">
-        <button className="nav-item logout-button" type="submit" title="Sair">
+        <PendingButton
+          className="nav-item logout-button"
+          pendingLabel="Saindo..."
+          title="Sair"
+        >
           <X size={18} />
           <span>Sair</span>
-        </button>
+        </PendingButton>
       </form>
     </aside>
   );
@@ -1110,10 +1116,10 @@ function NewRequestView(props: Props) {
           )}
 
           {requestStep === 4 && (
-            <button
+            <PendingButton
               className="primary-button"
-              type="submit"
               disabled={!selectedSpaceId}
+              pendingLabel="Enviando..."
               title={
                 !selectedSpaceId
                   ? "Escolha um ambiente recomendado"
@@ -1122,7 +1128,7 @@ function NewRequestView(props: Props) {
             >
               <Send size={18} />
               Enviar para aprovacao
-            </button>
+            </PendingButton>
           )}
         </div>
       </form>
@@ -1296,8 +1302,19 @@ function TodayCompactItem({
 function MyReservationsView(props: Props) {
   const { currentRequester, hasHydrated, reservationRequests } =
     useReservationStats(props);
+  const [statusFilter, setStatusFilter] = useState("TODOS");
+  const now = new Date();
   const myRequests = reservationRequests.filter(
     (request) => request.requester.id === currentRequester.id,
+  );
+  const filteredRequests = myRequests.filter(
+    (request) => statusFilter === "TODOS" || request.status === statusFilter,
+  );
+  const upcomingRequests = filteredRequests.filter(
+    (request) => new Date(request.endAt) >= now,
+  );
+  const historyRequests = filteredRequests.filter(
+    (request) => new Date(request.endAt) < now,
   );
 
   return (
@@ -1310,52 +1327,145 @@ function MyReservationsView(props: Props) {
         <GraduationCap size={22} />
       </div>
 
+      <div className="agenda-controls">
+        <div>
+          <p className="eyebrow">Filtros</p>
+          <h2>Acompanhar solicitacoes</h2>
+        </div>
+        <div className="segmented-group">
+          {[
+            ["TODOS", "Todas"],
+            ["PENDENTE", "Pendentes"],
+            ["APROVADA", "Aprovadas"],
+            ["RECUSADA", "Recusadas"],
+            ["CANCELADA", "Canceladas"],
+          ].map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              className={statusFilter === value ? "active" : ""}
+              onClick={() => setStatusFilter(value)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="section-heading compact-heading">
+        <div>
+          <p className="eyebrow">Proximas</p>
+          <h2>Solicitacoes em andamento ou futuras</h2>
+        </div>
+      </div>
       <div className="reservation-table">
-        {myRequests.length === 0 && (
+        {upcomingRequests.length === 0 && (
           <p className="empty-state">Voce ainda nao possui solicitacoes.</p>
         )}
 
-        {myRequests.map((request) => (
-          <article className="reservation-row" key={request.id}>
-            <div>
-              <span className={`status-pill ${request.status.toLowerCase()}`}>
-                {statusLabels[request.status]}
-              </span>
-              <h3>{request.space.name}</h3>
-              <p>
-                {request.course.name} - {request.discipline.name} -{" "}
-                {request.classGroup.name}
-              </p>
-            </div>
-            <div>
-              <span>Periodo</span>
-              <strong>
-                {hasHydrated
-                  ? `${formatDateTime(request.startAt)} | ${formatTimeRange(
-                      request.startAt,
-                      request.endAt,
-                    )}`
-                  : "--/--/--, --:--"}
-              </strong>
-            </div>
-            <div>
-              <span>Alunos</span>
-              <strong>{request.estimatedStudents}</strong>
-            </div>
-            <div>
-              <span>Aprovador</span>
-              <strong>
-                {request.assignedApprover?.name ?? "Fila administrativa geral"}
-              </strong>
-            </div>
-            <div className="reservation-note">
-              <span>Finalidade</span>
-              <strong>{request.purpose}</strong>
-            </div>
-          </article>
+        {upcomingRequests.map((request) => (
+          <MyReservationCard
+            currentRequester={currentRequester}
+            hasHydrated={hasHydrated}
+            key={request.id}
+            request={request}
+          />
+        ))}
+      </div>
+
+      <div className="section-heading compact-heading">
+        <div>
+          <p className="eyebrow">Historico</p>
+          <h2>Reservas encerradas</h2>
+        </div>
+      </div>
+      <div className="reservation-table">
+        {historyRequests.length === 0 && (
+          <p className="empty-state">Nenhuma reserva encerrada para este filtro.</p>
+        )}
+
+        {historyRequests.map((request) => (
+          <MyReservationCard
+            currentRequester={currentRequester}
+            hasHydrated={hasHydrated}
+            key={request.id}
+            request={request}
+          />
         ))}
       </div>
     </section>
+  );
+}
+
+function MyReservationCard({
+  currentRequester,
+  hasHydrated,
+  request,
+}: {
+  currentRequester: User;
+  hasHydrated: boolean;
+  request: ReservationRequest;
+}) {
+  return (
+    <article className="reservation-row">
+      <div>
+        <span className={`status-pill ${request.status.toLowerCase()}`}>
+          {statusLabels[request.status]}
+        </span>
+        <h3>{request.space.name}</h3>
+        <p>
+          {request.course.name} - {request.discipline.name} - {request.classGroup.name}
+        </p>
+      </div>
+      <div>
+        <span>Periodo</span>
+        <strong>
+          {hasHydrated
+            ? `${formatDateTime(request.startAt)} | ${formatTimeRange(
+                request.startAt,
+                request.endAt,
+              )}`
+            : "--/--/--, --:--"}
+        </strong>
+      </div>
+      <div>
+        <span>Alunos</span>
+        <strong>{request.estimatedStudents}</strong>
+      </div>
+      <div>
+        <span>Aprovador</span>
+        <strong>{request.assignedApprover?.name ?? "Fila administrativa geral"}</strong>
+      </div>
+      <div className="reservation-note">
+        <span>Finalidade</span>
+        <strong>{request.purpose}</strong>
+      </div>
+
+      {request.decisionNote && (
+        <div
+          className={`reservation-note decision-note ${request.status.toLowerCase()}`}
+        >
+          <span>Motivo/observacao</span>
+          <strong>{request.decisionNote}</strong>
+        </div>
+      )}
+
+      {request.status === "PENDENTE" && (
+        <form className="cancel-reservation-form" action={cancelOwnPendingReservation}>
+          <input type="hidden" name="requestId" value={request.id} />
+          <input type="hidden" name="requesterId" value={currentRequester.id} />
+          <input
+            name="decisionNote"
+            placeholder="Motivo do cancelamento"
+            required
+          />
+          <PendingButton className="reject-button" pendingLabel="Cancelando...">
+            <X size={17} />
+            Cancelar solicitacao
+          </PendingButton>
+        </form>
+      )}
+    </article>
   );
 }
 
@@ -1644,9 +1754,9 @@ function RegistrationsView({ courses, resources, spaces, users }: Props) {
             Codigo
             <input name="code" placeholder="Ex.: ES" required />
           </label>
-          <button className="primary-button" type="submit">
+          <PendingButton className="primary-button" pendingLabel="Salvando...">
             Salvar curso
-          </button>
+          </PendingButton>
         </form>
 
         <form className="registration-card" action={createDiscipline}>
@@ -1673,9 +1783,13 @@ function RegistrationsView({ courses, resources, spaces, users }: Props) {
             Codigo
             <input name="code" placeholder="Ex.: BD2" required />
           </label>
-          <button className="primary-button" type="submit" disabled={!disciplineCourseId}>
+          <PendingButton
+            className="primary-button"
+            disabled={!disciplineCourseId}
+            pendingLabel="Salvando..."
+          >
             Salvar disciplina
-          </button>
+          </PendingButton>
         </form>
 
         <form className="registration-card" action={createClassGroup}>
@@ -1702,9 +1816,13 @@ function RegistrationsView({ courses, resources, spaces, users }: Props) {
             Periodo
             <input name="period" placeholder="Ex.: Noturno" required />
           </label>
-          <button className="primary-button" type="submit" disabled={!classGroupCourseId}>
+          <PendingButton
+            className="primary-button"
+            disabled={!classGroupCourseId}
+            pendingLabel="Salvando..."
+          >
             Salvar turma
-          </button>
+          </PendingButton>
         </form>
 
         <form className="registration-card wide" action={createSpace}>
@@ -1762,9 +1880,9 @@ function RegistrationsView({ courses, resources, spaces, users }: Props) {
             />
           </label>
 
-          <button className="primary-button" type="submit">
+          <PendingButton className="primary-button" pendingLabel="Salvando...">
             Salvar ambiente
-          </button>
+          </PendingButton>
         </form>
       </div>
 
@@ -1792,13 +1910,13 @@ function RegistrationsView({ courses, resources, spaces, users }: Props) {
             options={approverOptions}
             onChange={setApproverUserId}
           />
-          <button
+          <PendingButton
             className="primary-button"
-            type="submit"
             disabled={!approverCourseId || !approverUserId}
+            pendingLabel="Vinculando..."
           >
             Vincular aprovador
-          </button>
+          </PendingButton>
         </form>
 
         {coursesWithoutApprover.length > 0 && (
@@ -1830,10 +1948,10 @@ function RegistrationsView({ courses, resources, spaces, users }: Props) {
                   <form action={removeCourseApprover} key={user.id}>
                     <input type="hidden" name="courseId" value={course.id} />
                     <input type="hidden" name="userId" value={user.id} />
-                    <button type="submit" title="Remover aprovador">
+                    <PendingButton pendingLabel="Removendo..." title="Remover aprovador">
                       {user.name}
                       <X size={14} />
-                    </button>
+                    </PendingButton>
                   </form>
                 ))}
               </div>
@@ -1904,10 +2022,10 @@ function ApprovalCard({
         <form action={approveReservationRequest}>
           <input type="hidden" name="requestId" value={request.id} />
           <input type="hidden" name="decidedById" value={currentApprover.id} />
-          <button className="approve-button" type="submit">
+          <PendingButton className="approve-button" pendingLabel="Aprovando...">
             <Check size={17} />
             Aprovar
-          </button>
+          </PendingButton>
         </form>
 
         <form action={rejectReservationRequest}>
@@ -1919,10 +2037,10 @@ function ApprovalCard({
             aria-label="Motivo da recusa"
             required
           />
-          <button className="reject-button" type="submit">
+          <PendingButton className="reject-button" pendingLabel="Recusando...">
             <X size={17} />
             Recusar
-          </button>
+          </PendingButton>
         </form>
       </div>
     </article>
