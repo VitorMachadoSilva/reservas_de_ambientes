@@ -1,0 +1,1981 @@
+"use client";
+
+import {
+  approveReservationRequest,
+  assignCourseApprover,
+  createClassGroup,
+  createCourse,
+  createDiscipline,
+  createReservationRequest,
+  createSpace,
+  logoutUser,
+  removeCourseApprover,
+  rejectReservationRequest,
+} from "@/app/actions";
+import {
+  Building2,
+  CalendarDays,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Clock3,
+  DoorOpen,
+  Filter,
+  GraduationCap,
+  LayoutDashboard,
+  Send,
+  Users,
+  X,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+
+type View =
+  | "dashboard"
+  | "new-request"
+  | "my-reservations"
+  | "approvals"
+  | "agenda"
+  | "spaces"
+  | "registrations";
+
+type User = {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+};
+
+type SimpleCourse = {
+  id: string;
+  name: string;
+  code: string;
+};
+
+type Course = SimpleCourse & {
+  approvers: {
+    user: User;
+  }[];
+};
+
+type Discipline = {
+  id: string;
+  name: string;
+  code: string;
+  courseId: string;
+};
+
+type ClassGroup = {
+  id: string;
+  name: string;
+  period: string;
+  courseId: string;
+};
+
+type Resource = {
+  id: string;
+  name: string;
+};
+
+type Space = {
+  id: string;
+  name: string;
+  type: "SALA" | "LABORATORIO" | "AUDITORIO" | "OUTRO";
+  capacity: number;
+  location: string;
+  notes: string | null;
+  resources: {
+    resource: Resource;
+  }[];
+};
+
+type ReservationRequest = {
+  id: string;
+  status: "PENDENTE" | "APROVADA" | "RECUSADA" | "CANCELADA";
+  startAt: string;
+  endAt: string;
+  estimatedStudents: number;
+  purpose: string;
+  decisionNote: string | null;
+  requester: User;
+  assignedApprover: User | null;
+  decidedBy: User | null;
+  course: SimpleCourse;
+  discipline: Discipline;
+  classGroup: ClassGroup;
+  space: {
+    id: string;
+    name: string;
+    location: string;
+  };
+};
+
+type Props = {
+  view: View;
+  currentUser: User;
+  currentRequester: User;
+  currentApprover: User;
+  courses: Course[];
+  disciplines: Discipline[];
+  classGroups: ClassGroup[];
+  resources: Resource[];
+  spaces: Space[];
+  users: User[];
+  reservationRequests: ReservationRequest[];
+  initialDate: string;
+};
+
+const spaceTypeLabels = {
+  SALA: "Sala",
+  LABORATORIO: "Laboratorio",
+  AUDITORIO: "Auditorio",
+  OUTRO: "Outro",
+};
+
+const statusLabels = {
+  PENDENTE: "Pendente",
+  APROVADA: "Aprovada",
+  RECUSADA: "Recusada",
+  CANCELADA: "Cancelada",
+};
+
+const roleLabels: Record<string, string> = {
+  DOCENTE: "Docente",
+  APROVADOR: "Aprovador",
+  ADMIN: "Administrador",
+  DISCENTE: "Discente",
+};
+
+function parseDateTime(date: string, time: string) {
+  if (!date || !time) return null;
+  return new Date(`${date}T${time}:00`);
+}
+
+function formatDateTime(value: string) {
+  const date = new Date(value);
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const year = String(date.getFullYear()).slice(-2);
+  const hour = String(date.getHours()).padStart(2, "0");
+  const minute = String(date.getMinutes()).padStart(2, "0");
+
+  return `${day}/${month}/${year}, ${hour}:${minute}`;
+}
+
+function formatTimeRange(startAt: string, endAt: string) {
+  const formatTime = (value: string) => {
+    const date = new Date(value);
+    const hour = String(date.getHours()).padStart(2, "0");
+    const minute = String(date.getMinutes()).padStart(2, "0");
+
+    return `${hour}:${minute}`;
+  };
+
+  return `${formatTime(startAt)} - ${formatTime(endAt)}`;
+}
+
+function inputDateFromValue(value: string) {
+  return value.slice(0, 10);
+}
+
+function minutesFromDateTime(value: string) {
+  const date = new Date(value);
+  return date.getHours() * 60 + date.getMinutes();
+}
+
+function getDailyOperationalStatus(request: ReservationRequest, nowMinutes: number) {
+  if (request.status === "RECUSADA") {
+    return {
+      key: "RECUSADA",
+      label: "Recusada",
+      className: "recusada",
+    };
+  }
+
+  if (request.status === "CANCELADA") {
+    return {
+      key: "CANCELADA",
+      label: "Cancelada",
+      className: "cancelada",
+    };
+  }
+
+  const startMinutes = minutesFromDateTime(request.startAt);
+  const endMinutes = minutesFromDateTime(request.endAt);
+
+  if (endMinutes < nowMinutes) {
+    return {
+      key: "FINALIZADA",
+      label: "Finalizada",
+      className: "finalizada",
+    };
+  }
+
+  if (startMinutes <= nowMinutes && endMinutes >= nowMinutes) {
+    return {
+      key: "AGORA",
+      label: request.status === "PENDENTE" ? "Pendente agora" : "Em andamento",
+      className: request.status === "PENDENTE" ? "pendente-agora" : "em-andamento",
+    };
+  }
+
+  if (request.status === "PENDENTE") {
+    return {
+      key: "PENDENTE",
+      label: "Pendente",
+      className: "pendente",
+    };
+  }
+
+  return {
+    key: "PROGRAMADA",
+    label: "Programada",
+    className: "programada",
+  };
+}
+
+function hasOverlap(
+  request: ReservationRequest,
+  selectedSpaceId: string,
+  startAt: Date | null,
+  endAt: Date | null,
+) {
+  if (!startAt || !endAt || request.space.id !== selectedSpaceId) return false;
+  if (!["PENDENTE", "APROVADA"].includes(request.status)) return false;
+
+  return startAt < new Date(request.endAt) && endAt > new Date(request.startAt);
+}
+
+function Sidebar({
+  collapsed,
+  currentUser,
+  setCollapsed,
+}: {
+  collapsed: boolean;
+  currentUser: User;
+  setCollapsed: (collapsed: boolean) => void;
+}) {
+  const pathname = usePathname();
+  const navItems = [
+    { href: "/", label: "Painel", icon: LayoutDashboard },
+    {
+      href: "/nova-solicitacao",
+      label: "Nova solicitacao",
+      icon: Send,
+      roles: ["DOCENTE"],
+    },
+    {
+      href: "/minhas-reservas",
+      label: "Minhas reservas",
+      icon: GraduationCap,
+      roles: ["DOCENTE"],
+    },
+    {
+      href: "/aprovacoes",
+      label: "Aprovacoes",
+      icon: Check,
+      roles: ["APROVADOR", "ADMIN"],
+    },
+    { href: "/agenda", label: "Agenda", icon: CalendarDays },
+    { href: "/ambientes", label: "Ambientes", icon: Building2 },
+    {
+      href: "/cadastros",
+      label: "Cadastros",
+      icon: Users,
+      roles: ["ADMIN"],
+    },
+  ].filter((item) => !item.roles || item.roles.includes(currentUser.role));
+
+  return (
+    <aside className={`sidebar ${collapsed ? "collapsed" : ""}`}>
+      <div className="brand">
+        <div className="brand-icon">
+          <DoorOpen size={22} />
+        </div>
+        <div className="brand-copy">
+          <strong>Reservas</strong>
+          <span>Ambientes academicos</span>
+        </div>
+      </div>
+
+      <button
+        className="sidebar-toggle"
+        type="button"
+        onClick={() => setCollapsed(!collapsed)}
+        title={collapsed ? "Expandir menu" : "Recolher menu"}
+      >
+        {collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+        <span>{collapsed ? "Expandir" : "Recolher"}</span>
+      </button>
+
+      <nav className="nav-list" aria-label="Navegacao principal">
+        {navItems.map((item) => {
+          const Icon = item.icon;
+          const active = pathname === item.href;
+
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`nav-item ${active ? "active" : ""}`}
+              title={item.label}
+            >
+              <Icon size={18} />
+              <span>{item.label}</span>
+            </Link>
+          );
+        })}
+      </nav>
+
+      <form action={logoutUser} className="logout-form">
+        <button className="nav-item logout-button" type="submit" title="Sair">
+          <X size={18} />
+          <span>Sair</span>
+        </button>
+      </form>
+    </aside>
+  );
+}
+
+function CustomSelect({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: { value: string; label: string }[];
+  onChange: (value: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const selectedOption = options.find((option) => option.value === value);
+
+  return (
+    <div className="custom-select">
+      <span className="custom-select-label">{label}</span>
+      <button
+        className="custom-select-button"
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+        aria-expanded={open}
+      >
+        <strong>{selectedOption?.label ?? "Selecione"}</strong>
+        <ChevronRight size={17} />
+      </button>
+      {open && (
+        <div className="custom-select-menu" role="listbox">
+          {options.map((option) => (
+            <button
+              key={option.value}
+              className={`custom-select-option ${
+                option.value === value ? "selected" : ""
+              }`}
+              type="button"
+              onClick={() => {
+                onChange(option.value);
+                setOpen(false);
+              }}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function ReservationWorkspace(props: Props) {
+  const [collapsed, setCollapsed] = useState(false);
+  const allowedViews: Record<View, string[]> = {
+    dashboard: ["DOCENTE", "APROVADOR", "ADMIN", "DISCENTE"],
+    "new-request": ["DOCENTE"],
+    "my-reservations": ["DOCENTE"],
+    approvals: ["APROVADOR", "ADMIN"],
+    agenda: ["DOCENTE", "APROVADOR", "ADMIN", "DISCENTE"],
+    spaces: ["DOCENTE", "APROVADOR", "ADMIN", "DISCENTE"],
+    registrations: ["ADMIN"],
+  };
+  const canView = allowedViews[props.view].includes(props.currentUser.role);
+
+  return (
+    <main className={`app-shell ${collapsed ? "sidebar-collapsed" : ""}`}>
+      <Sidebar
+        collapsed={collapsed}
+        currentUser={props.currentUser}
+        setCollapsed={setCollapsed}
+      />
+      <section className="content">
+        <PageTopbar {...props} />
+        {!canView && <AccessDeniedView />}
+        {canView && props.view === "dashboard" && <DashboardView {...props} />}
+        {canView && props.view === "new-request" && <NewRequestView {...props} />}
+        {canView && props.view === "my-reservations" && (
+          <MyReservationsView {...props} />
+        )}
+        {canView && props.view === "approvals" && <ApprovalsView {...props} />}
+        {canView && props.view === "agenda" && <AgendaView {...props} />}
+        {canView && props.view === "spaces" && <SpacesView {...props} />}
+        {canView && props.view === "registrations" && <RegistrationsView {...props} />}
+      </section>
+    </main>
+  );
+}
+
+function AccessDeniedView() {
+  return (
+    <section className="access-denied-panel">
+      <p className="eyebrow">Acesso restrito</p>
+      <h2>Esta area nao esta disponivel para o perfil atual.</h2>
+      <p>
+        Use o menu lateral para navegar pelas areas liberadas para o usuario
+        selecionado.
+      </p>
+    </section>
+  );
+}
+
+function PageTopbar({ currentUser, view }: Props) {
+  const titles = {
+    dashboard: ["Painel do dia", "Agenda operacional da instituicao"],
+    "new-request": ["Nova solicitacao", "Encontre um ambiente e envie para aprovacao"],
+    "my-reservations": ["Minhas reservas", "Acompanhe suas solicitacoes e reservas"],
+    approvals: ["Aprovacoes", "Solicitacoes aguardando decisao"],
+    agenda: ["Agenda", "Reservas recentes e bloqueios"],
+    spaces: ["Ambientes", "Salas e laboratorios cadastrados"],
+    registrations: ["Cadastros", "Base academica e ambientes"],
+  };
+
+  return (
+    <header className="topbar">
+      <div>
+        <p className="eyebrow">{titles[view][0]}</p>
+        <h1>{titles[view][1]}</h1>
+      </div>
+      <div className="profile-cluster">
+        <div>
+          <span>Usuario logado</span>
+          <strong>{currentUser.name}</strong>
+        </div>
+        <div>
+          <span>Perfil</span>
+          <strong>{roleLabels[currentUser.role] ?? currentUser.role}</strong>
+        </div>
+      </div>
+    </header>
+  );
+}
+
+function DashboardView(props: Props) {
+  const {
+    initialDate,
+    reservationRequests,
+    spaces,
+    pendingRequests,
+    approvedRequests,
+    rejectedRequests,
+    hasHydrated,
+  } = useReservationStats(props);
+  const [statusFilter, setStatusFilter] = useState("TODOS");
+  const [shiftFilter, setShiftFilter] = useState("TODOS");
+  const now = new Date();
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+
+  const todayRequests = reservationRequests.filter(
+    (request) => inputDateFromValue(request.startAt) === initialDate,
+  );
+  const filteredTodayRequests = todayRequests.filter((request) => {
+    const statusMatches = statusFilter === "TODOS" || request.status === statusFilter;
+    const startMinutes = minutesFromDateTime(request.startAt);
+    const shiftMatches =
+      shiftFilter === "TODOS" ||
+      (shiftFilter === "MANHA" && startMinutes < 12 * 60) ||
+      (shiftFilter === "TARDE" && startMinutes >= 12 * 60 && startMinutes < 18 * 60) ||
+      (shiftFilter === "NOITE" && startMinutes >= 18 * 60);
+
+    return statusMatches && shiftMatches;
+  });
+  const todayApprovedRequests = todayRequests.filter(
+    (request) => request.status === "APROVADA",
+  );
+  const todayPendingRequests = todayRequests.filter(
+    (request) => request.status === "PENDENTE",
+  );
+  const currentRequests = todayRequests.filter((request) => {
+    const startMinutes = minutesFromDateTime(request.startAt);
+    const endMinutes = minutesFromDateTime(request.endAt);
+
+    return (
+      ["PENDENTE", "APROVADA"].includes(request.status) &&
+      startMinutes <= nowMinutes &&
+      endMinutes >= nowMinutes
+    );
+  });
+  const occupiedTodaySpaceIds = new Set(
+    todayRequests
+      .filter((request) => ["PENDENTE", "APROVADA"].includes(request.status))
+      .map((request) => request.space.id),
+  );
+  const occupiedNowSpaceIds = new Set(
+    currentRequests.map((request) => request.space.id),
+  );
+  const availableTodaySpaces = Math.max(spaces.length - occupiedTodaySpaceIds.size, 0);
+  const availableNowSpaces = Math.max(spaces.length - occupiedNowSpaceIds.size, 0);
+  const adminQueueRequests = pendingRequests.filter(
+    (request) => !request.assignedApprover,
+  );
+  const filteredApprovedRequests = filteredTodayRequests.filter(
+    (request) => request.status === "APROVADA",
+  );
+  const filteredPendingRequests = filteredTodayRequests.filter(
+    (request) => request.status === "PENDENTE",
+  );
+
+  return (
+    <>
+      <section className="metrics-grid" aria-label="Resumo operacional">
+        <Metric icon={CalendarDays} label="Reservas hoje" value={todayApprovedRequests.length} />
+        <Metric icon={Clock3} label="Pendentes hoje" value={todayPendingRequests.length} />
+        <Metric icon={DoorOpen} label="Livres agora" value={availableNowSpaces} />
+        <Metric icon={Building2} label="Ocupados agora" value={occupiedNowSpaceIds.size} />
+      </section>
+
+      <section className="dashboard-controls">
+        <div>
+          <p className="eyebrow">Filtros</p>
+          <h2>Visualizar agenda do dia</h2>
+        </div>
+        <div className="segmented-group">
+          {[
+            ["TODOS", "Todos"],
+            ["APROVADA", "Aprovadas"],
+            ["PENDENTE", "Pendentes"],
+          ].map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              className={statusFilter === value ? "active" : ""}
+              onClick={() => setStatusFilter(value)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="segmented-group">
+          {[
+            ["TODOS", "Dia"],
+            ["MANHA", "Manha"],
+            ["TARDE", "Tarde"],
+            ["NOITE", "Noite"],
+          ].map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              className={shiftFilter === value ? "active" : ""}
+              onClick={() => setShiftFilter(value)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="daily-grid">
+        <section className="today-panel">
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">Agora</p>
+              <h2>Ambientes em uso neste momento</h2>
+            </div>
+            <CalendarDays size={22} />
+          </div>
+
+          <div className="today-list">
+            {currentRequests.length === 0 && (
+              <p className="empty-state">
+                Nenhum ambiente aparece ocupado neste momento.
+              </p>
+            )}
+
+            {currentRequests.slice(0, 6).map((request) => (
+              <TodayMainItem
+                key={request.id}
+                request={request}
+                hasHydrated={hasHydrated}
+                nowMinutes={nowMinutes}
+              />
+            ))}
+          </div>
+        </section>
+
+        <aside className="context-panel">
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">Sua area</p>
+              <h2>Acoes importantes</h2>
+            </div>
+            <LayoutDashboard size={22} />
+          </div>
+
+          <div className="action-stack">
+            <Link className="quick-action primary" href="/nova-solicitacao">
+              <Send size={18} />
+              <span>
+                <strong>Nova solicitacao</strong>
+                <small>Encontrar ambiente e enviar para aprovacao</small>
+              </span>
+            </Link>
+            <Link className="quick-action" href="/aprovacoes">
+              <Check size={18} />
+              <span>
+                <strong>Fila de aprovacao</strong>
+                <small>{pendingRequests.length} solicitacao(oes) aguardando decisao</small>
+              </span>
+            </Link>
+            <Link className="quick-action" href="/agenda">
+              <CalendarDays size={18} />
+              <span>
+                <strong>Agenda completa</strong>
+                <small>Ver reservas recentes e seus status</small>
+              </span>
+            </Link>
+          </div>
+
+          <div className="alert-box">
+            <span>Fila administrativa geral</span>
+            <strong>{adminQueueRequests.length}</strong>
+            <p>
+              Solicitacoes de cursos sem aprovador configurado aparecem aqui para
+              tratamento administrativo.
+            </p>
+          </div>
+        </aside>
+      </section>
+
+      <section className="dashboard-lists">
+        <section className="today-panel">
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">Confirmadas</p>
+              <h2>Reservas aprovadas do dia</h2>
+            </div>
+            <Check size={22} />
+          </div>
+
+          <div className="today-list">
+            {filteredApprovedRequests.length === 0 && (
+              <p className="empty-state">Nenhuma reserva aprovada para este filtro.</p>
+            )}
+            {filteredApprovedRequests.map((request) => (
+              <TodayCompactItem
+                key={request.id}
+                request={request}
+                hasHydrated={hasHydrated}
+                nowMinutes={nowMinutes}
+              />
+            ))}
+          </div>
+        </section>
+
+        <section className="today-panel">
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">Em analise</p>
+              <h2>Solicitacoes pendentes do dia</h2>
+            </div>
+            <Clock3 size={22} />
+          </div>
+
+          <div className="today-list">
+            {filteredPendingRequests.length === 0 && (
+              <p className="empty-state">Nenhuma pendencia para este filtro.</p>
+            )}
+            {filteredPendingRequests.map((request) => (
+              <TodayCompactItem
+                key={request.id}
+                request={request}
+                hasHydrated={hasHydrated}
+                nowMinutes={nowMinutes}
+              />
+            ))}
+          </div>
+        </section>
+      </section>
+
+      <section className="metrics-grid compact" aria-label="Resumo geral">
+        <Metric icon={Clock3} label="Pendentes totais" value={pendingRequests.length} />
+        <Metric icon={Check} label="Aprovadas totais" value={approvedRequests.length} />
+        <Metric icon={X} label="Recusadas totais" value={rejectedRequests.length} />
+        <Metric icon={DoorOpen} label="Livres no dia" value={availableTodaySpaces} />
+      </section>
+    </>
+  );
+}
+
+function NewRequestView(props: Props) {
+  const {
+    currentRequester,
+    courses,
+    disciplines,
+    classGroups,
+    resources,
+    spaces,
+    reservationRequests,
+    initialDate,
+  } = props;
+  const [courseId, setCourseId] = useState(courses[0]?.id ?? "");
+  const [selectedType, setSelectedType] = useState("LABORATORIO");
+  const [date, setDate] = useState(initialDate);
+  const [startTime, setStartTime] = useState("19:00");
+  const [endTime, setEndTime] = useState("21:00");
+  const [estimatedStudents, setEstimatedStudents] = useState("30");
+  const [purpose, setPurpose] = useState("");
+  const [selectedResourceIds, setSelectedResourceIds] = useState<string[]>([]);
+  const [selectedSpaceId, setSelectedSpaceId] = useState("");
+  const [disciplineId, setDisciplineId] = useState(
+    disciplines.find((discipline) => discipline.courseId === courses[0]?.id)?.id ?? "",
+  );
+  const [classGroupId, setClassGroupId] = useState(
+    classGroups.find((classGroup) => classGroup.courseId === courses[0]?.id)?.id ?? "",
+  );
+  const [requestStep, setRequestStep] = useState(1);
+
+  const filteredDisciplines = disciplines.filter(
+    (discipline) => discipline.courseId === courseId,
+  );
+  const filteredClassGroups = classGroups.filter(
+    (classGroup) => classGroup.courseId === courseId,
+  );
+  const selectedCourse = courses.find((course) => course.id === courseId);
+  const selectedDiscipline = disciplines.find(
+    (discipline) => discipline.id === disciplineId,
+  );
+  const selectedClassGroup = classGroups.find(
+    (classGroup) => classGroup.id === classGroupId,
+  );
+  const selectedSpace = spaces.find((space) => space.id === selectedSpaceId);
+  const startAt = parseDateTime(date, startTime);
+  const endAt = parseDateTime(date, endTime);
+  const capacity = Number(estimatedStudents) || 0;
+  const canAdvanceFromAcademic =
+    Boolean(courseId && disciplineId && classGroupId) && capacity > 0;
+  const canAdvanceFromCriteria = Boolean(
+    date &&
+      startTime &&
+      endTime &&
+      startAt &&
+      endAt &&
+      endAt > startAt &&
+      purpose.trim().length > 0,
+  );
+  const canReview = Boolean(selectedSpaceId);
+  const selectedResourceNames = resources
+    .filter((resource) => selectedResourceIds.includes(resource.id))
+    .map((resource) => resource.name);
+
+  const recommendations = useMemo(() => {
+    return spaces
+      .map((space) => {
+        const spaceResourceIds = space.resources.map(({ resource }) => resource.id);
+        const missingResources = selectedResourceIds.filter(
+          (resourceId) => !spaceResourceIds.includes(resourceId),
+        );
+        const hasConflict = reservationRequests.some((request) =>
+          hasOverlap(request, space.id, startAt, endAt),
+        );
+        const typeMatches = !selectedType || space.type === selectedType;
+        const capacityMatches = space.capacity >= capacity;
+        const resourcesMatch = missingResources.length === 0;
+        const compatible =
+          !hasConflict && typeMatches && capacityMatches && resourcesMatch;
+        const partial =
+          !hasConflict && typeMatches && (!capacityMatches || !resourcesMatch);
+
+        return {
+          ...space,
+          hasConflict,
+          capacityMatches,
+          resourcesMatch,
+          level: compatible ? "COMPATIVEL" : partial ? "PARCIAL" : "INDISPONIVEL",
+        };
+      })
+      .sort((a, b) => {
+        const order: Record<string, number> = {
+          COMPATIVEL: 0,
+          PARCIAL: 1,
+          INDISPONIVEL: 2,
+        };
+        return order[a.level] - order[b.level] || b.capacity - a.capacity;
+      });
+  }, [
+    capacity,
+    endAt,
+    reservationRequests,
+    selectedResourceIds,
+    selectedType,
+    spaces,
+    startAt,
+  ]);
+
+  function toggleResource(resourceId: string) {
+    setSelectedResourceIds((current) =>
+      current.includes(resourceId)
+        ? current.filter((id) => id !== resourceId)
+        : [...current, resourceId],
+    );
+  }
+
+  return (
+    <section className="workspace-grid">
+      <form className="request-panel" action={createReservationRequest}>
+        <input type="hidden" name="requesterId" value={currentRequester.id} />
+        <input type="hidden" name="courseId" value={courseId} />
+        <input type="hidden" name="disciplineId" value={disciplineId} />
+        <input type="hidden" name="classGroupId" value={classGroupId} />
+        <input type="hidden" name="spaceId" value={selectedSpaceId} />
+
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Docente</p>
+            <h2>Dados da solicitacao</h2>
+          </div>
+          <GraduationCap size={22} />
+        </div>
+
+        <div className="stepper" aria-label="Etapas da solicitacao">
+          {[
+            "Dados academicos",
+            "Criterios",
+            "Ambiente",
+            "Revisao",
+          ].map((label, index) => {
+            const step = index + 1;
+            const disabled =
+              (step === 2 && !canAdvanceFromAcademic) ||
+              (step === 3 && (!canAdvanceFromAcademic || !canAdvanceFromCriteria)) ||
+              (step === 4 &&
+                (!canAdvanceFromAcademic || !canAdvanceFromCriteria || !canReview));
+
+            return (
+              <button
+                key={label}
+                type="button"
+                className={`step-button ${requestStep === step ? "active" : ""}`}
+                disabled={disabled}
+                onClick={() => setRequestStep(step)}
+              >
+                <span>{step}</span>
+                <strong>{label}</strong>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className={`wizard-step ${requestStep === 1 ? "active" : ""}`}>
+          <div className="field-grid">
+            <CustomSelect
+              label="Curso"
+              value={courseId}
+              options={courses.map((course) => ({
+                value: course.id,
+                label: course.name,
+              }))}
+              onChange={(nextCourseId) => {
+                const nextDiscipline = disciplines.find(
+                  (discipline) => discipline.courseId === nextCourseId,
+                );
+                const nextClassGroup = classGroups.find(
+                  (classGroup) => classGroup.courseId === nextCourseId,
+                );
+
+                setCourseId(nextCourseId);
+                setDisciplineId(nextDiscipline?.id ?? "");
+                setClassGroupId(nextClassGroup?.id ?? "");
+                setSelectedSpaceId("");
+              }}
+            />
+
+            <CustomSelect
+              label="Disciplina"
+              value={disciplineId}
+              options={filteredDisciplines.map((discipline) => ({
+                value: discipline.id,
+                label: discipline.name,
+              }))}
+              onChange={setDisciplineId}
+            />
+
+            <CustomSelect
+              label="Turma"
+              value={classGroupId}
+              options={filteredClassGroups.map((classGroup) => ({
+                value: classGroup.id,
+                label: `${classGroup.name} - ${classGroup.period}`,
+              }))}
+              onChange={setClassGroupId}
+            />
+
+          <label>
+            Alunos previstos
+            <input
+              name="estimatedStudents"
+              type="number"
+              min="1"
+              value={estimatedStudents}
+              onChange={(event) => setEstimatedStudents(event.target.value)}
+              required
+            />
+          </label>
+          </div>
+        </div>
+
+        <div className={`wizard-step ${requestStep === 2 ? "active" : ""}`}>
+          <div className="field-grid">
+          <label>
+            Data
+            <input
+              name="date"
+              type="date"
+              value={date}
+              onChange={(event) => {
+                setDate(event.target.value);
+                setSelectedSpaceId("");
+              }}
+              required
+            />
+          </label>
+
+          <label>
+            Inicio
+            <input
+              name="startTime"
+              type="time"
+              value={startTime}
+              onChange={(event) => {
+                setStartTime(event.target.value);
+                setSelectedSpaceId("");
+              }}
+              required
+            />
+          </label>
+
+          <label>
+            Fim
+            <input
+              name="endTime"
+              type="time"
+              value={endTime}
+              onChange={(event) => {
+                setEndTime(event.target.value);
+                setSelectedSpaceId("");
+              }}
+              required
+            />
+          </label>
+
+            <CustomSelect
+              label="Tipo de ambiente"
+              value={selectedType}
+              options={[
+                { value: "LABORATORIO", label: "Laboratorio" },
+                { value: "SALA", label: "Sala" },
+                { value: "AUDITORIO", label: "Auditorio" },
+                { value: "OUTRO", label: "Outro" },
+              ]}
+              onChange={(value) => {
+                setSelectedType(value);
+                setSelectedSpaceId("");
+              }}
+            />
+
+          </div>
+
+          <fieldset className="resource-selector">
+            <legend>
+              <Filter size={18} />
+              Recursos desejados
+            </legend>
+            <div className="chip-grid">
+              {resources.map((resource) => (
+                <label key={resource.id} className="chip">
+                  <input
+                    type="checkbox"
+                    checked={selectedResourceIds.includes(resource.id)}
+                    onChange={() => {
+                      toggleResource(resource.id);
+                      setSelectedSpaceId("");
+                    }}
+                  />
+                  <span>{resource.name}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+
+          <label>
+            Finalidade
+            <textarea
+              name="purpose"
+              rows={4}
+              value={purpose}
+              onChange={(event) => setPurpose(event.target.value)}
+              placeholder="Ex.: aula pratica, avaliacao, oficina, apresentacao de projeto..."
+              required
+            />
+          </label>
+        </div>
+
+        <div className={`wizard-step ${requestStep === 3 ? "active" : ""}`}>
+          <div className="selected-space">
+            <span>Ambiente escolhido</span>
+            <strong>
+              {selectedSpace?.name ?? "Selecione uma recomendacao ao lado"}
+            </strong>
+          </div>
+          <p className="helper-text">
+            As recomendacoes ficam no painel ao lado. O sistema apenas sugere
+            ambientes compativeis; a escolha final e do docente.
+          </p>
+        </div>
+
+        <div className={`wizard-step ${requestStep === 4 ? "active" : ""}`}>
+          <div className="review-panel">
+            <div>
+              <span>Curso</span>
+              <strong>{selectedCourse?.name ?? "Nao informado"}</strong>
+            </div>
+            <div>
+              <span>Disciplina</span>
+              <strong>{selectedDiscipline?.name ?? "Nao informada"}</strong>
+            </div>
+            <div>
+              <span>Turma</span>
+              <strong>{selectedClassGroup?.name ?? "Nao informada"}</strong>
+            </div>
+            <div>
+              <span>Periodo</span>
+              <strong>
+                {date} - {startTime} as {endTime}
+              </strong>
+            </div>
+            <div>
+              <span>Alunos previstos</span>
+              <strong>{estimatedStudents}</strong>
+            </div>
+            <div>
+              <span>Ambiente</span>
+              <strong>{selectedSpace?.name ?? "Nao selecionado"}</strong>
+            </div>
+            <div className="review-wide">
+              <span>Recursos desejados</span>
+              <strong>
+                {selectedResourceNames.length > 0
+                  ? selectedResourceNames.join(", ")
+                  : "Nenhum recurso especifico"}
+              </strong>
+            </div>
+            <div className="review-wide">
+              <span>Finalidade</span>
+              <strong>{purpose || "Nao informada"}</strong>
+            </div>
+          </div>
+        </div>
+
+        <div className="wizard-actions">
+          <button
+            className="secondary-button"
+            type="button"
+            disabled={requestStep === 1}
+            onClick={() => setRequestStep((step) => Math.max(step - 1, 1))}
+          >
+            Voltar
+          </button>
+
+          {requestStep < 4 && (
+            <button
+              className="primary-button"
+              type="button"
+              disabled={
+                (requestStep === 1 && !canAdvanceFromAcademic) ||
+                (requestStep === 2 && !canAdvanceFromCriteria) ||
+                (requestStep === 3 && !canReview)
+              }
+              onClick={() => setRequestStep((step) => Math.min(step + 1, 4))}
+            >
+              Continuar
+            </button>
+          )}
+
+          {requestStep === 4 && (
+            <button
+              className="primary-button"
+              type="submit"
+              disabled={!selectedSpaceId}
+              title={
+                !selectedSpaceId
+                  ? "Escolha um ambiente recomendado"
+                  : "Enviar solicitacao"
+              }
+            >
+              <Send size={18} />
+              Enviar para aprovacao
+            </button>
+          )}
+        </div>
+      </form>
+
+      <section className="recommendation-panel">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Recomendacao</p>
+            <h2>Ambientes encontrados</h2>
+          </div>
+          <DoorOpen size={22} />
+        </div>
+
+        <p className="helper-text">
+          O sistema sugere opcoes, mas o docente escolhe qual ambiente deseja
+          solicitar.
+        </p>
+
+        <div className="recommendation-list">
+          {requestStep < 3 && (
+            <p className="empty-state">
+              Complete os dados academicos e os criterios da reserva para ver os
+              ambientes recomendados.
+            </p>
+          )}
+
+          {requestStep >= 3 && recommendations.map((space) => {
+            const canSelect = space.level !== "INDISPONIVEL";
+            return (
+              <article
+                className={`space-card ${selectedSpaceId === space.id ? "selected" : ""}`}
+                key={space.id}
+              >
+                <div className="space-card-header">
+                  <div>
+                    <span className={`status-pill ${space.level.toLowerCase()}`}>
+                      {space.level === "COMPATIVEL"
+                        ? "Compativel"
+                        : space.level === "PARCIAL"
+                          ? "Parcial"
+                          : "Indisponivel"}
+                    </span>
+                    <h3>{space.name}</h3>
+                  </div>
+                  <button
+                    type="button"
+                    className="ghost-button"
+                    disabled={!canSelect}
+                    onClick={() => setSelectedSpaceId(space.id)}
+                    title={
+                      canSelect
+                        ? "Escolher este ambiente"
+                        : "Ambiente indisponivel no horario"
+                    }
+                  >
+                    <Check size={17} />
+                    Escolher
+                  </button>
+                </div>
+
+                <div className="space-facts">
+                  <span>
+                    <Users size={16} />
+                    {space.capacity} lugares
+                  </span>
+                  <span>
+                    <Building2 size={16} />
+                    {space.location}
+                  </span>
+                  <span>
+                    <DoorOpen size={16} />
+                    {spaceTypeLabels[space.type]}
+                  </span>
+                </div>
+
+                <div className="tag-row">
+                  {space.resources.map(({ resource }) => (
+                    <span key={resource.id}>{resource.name}</span>
+                  ))}
+                </div>
+
+                {space.level !== "COMPATIVEL" && (
+                  <ul className="warning-list">
+                    {space.hasConflict && <li>Ja existe bloqueio nesse horario.</li>}
+                    {!space.capacityMatches && (
+                      <li>Capacidade menor que a quantidade informada.</li>
+                    )}
+                    {!space.resourcesMatch && (
+                      <li>Nem todos os recursos desejados estao disponiveis.</li>
+                    )}
+                  </ul>
+                )}
+              </article>
+            );
+          })}
+        </div>
+      </section>
+    </section>
+  );
+}
+
+function TodayMainItem({
+  request,
+  hasHydrated,
+  nowMinutes,
+}: {
+  request: ReservationRequest;
+  hasHydrated: boolean;
+  nowMinutes: number;
+}) {
+  const operationalStatus = getDailyOperationalStatus(request, nowMinutes);
+
+  return (
+    <article className={`today-item ${operationalStatus.className}`} key={request.id}>
+      <div className="today-time">
+        <Clock3 size={16} />
+        <strong>
+          {hasHydrated
+            ? formatTimeRange(request.startAt, request.endAt)
+            : "--:-- - --:--"}
+        </strong>
+      </div>
+      <div>
+        <span className={`status-pill ${operationalStatus.className}`}>
+          {operationalStatus.label}
+        </span>
+        <h3>{request.space.name}</h3>
+        <p>
+          {request.course.code} - {request.discipline.name} -{" "}
+          {request.classGroup.name}
+        </p>
+      </div>
+      <div className="today-owner">
+        <span>Docente</span>
+        <strong>{request.requester.name}</strong>
+      </div>
+    </article>
+  );
+}
+
+function TodayCompactItem({
+  request,
+  hasHydrated,
+  nowMinutes,
+}: {
+  request: ReservationRequest;
+  hasHydrated: boolean;
+  nowMinutes: number;
+}) {
+  const operationalStatus = getDailyOperationalStatus(request, nowMinutes);
+
+  return (
+    <article className={`compact-day-item ${operationalStatus.className}`}>
+      <div>
+        <span className={`status-pill ${operationalStatus.className}`}>
+          {operationalStatus.label}
+        </span>
+        <h3>{request.space.name}</h3>
+        <p>
+          {request.course.code} - {request.discipline.name} -{" "}
+          {request.classGroup.name}
+        </p>
+      </div>
+      <strong>
+        {hasHydrated ? formatTimeRange(request.startAt, request.endAt) : "--:-- - --:--"}
+      </strong>
+    </article>
+  );
+}
+
+function MyReservationsView(props: Props) {
+  const { currentRequester, hasHydrated, reservationRequests } =
+    useReservationStats(props);
+  const myRequests = reservationRequests.filter(
+    (request) => request.requester.id === currentRequester.id,
+  );
+
+  return (
+    <section className="calendar-panel single-panel">
+      <div className="section-heading">
+        <div>
+          <p className="eyebrow">Docente</p>
+          <h2>Minhas reservas</h2>
+        </div>
+        <GraduationCap size={22} />
+      </div>
+
+      <div className="reservation-table">
+        {myRequests.length === 0 && (
+          <p className="empty-state">Voce ainda nao possui solicitacoes.</p>
+        )}
+
+        {myRequests.map((request) => (
+          <article className="reservation-row" key={request.id}>
+            <div>
+              <span className={`status-pill ${request.status.toLowerCase()}`}>
+                {statusLabels[request.status]}
+              </span>
+              <h3>{request.space.name}</h3>
+              <p>
+                {request.course.name} - {request.discipline.name} -{" "}
+                {request.classGroup.name}
+              </p>
+            </div>
+            <div>
+              <span>Periodo</span>
+              <strong>
+                {hasHydrated
+                  ? `${formatDateTime(request.startAt)} | ${formatTimeRange(
+                      request.startAt,
+                      request.endAt,
+                    )}`
+                  : "--/--/--, --:--"}
+              </strong>
+            </div>
+            <div>
+              <span>Alunos</span>
+              <strong>{request.estimatedStudents}</strong>
+            </div>
+            <div>
+              <span>Aprovador</span>
+              <strong>
+                {request.assignedApprover?.name ?? "Fila administrativa geral"}
+              </strong>
+            </div>
+            <div className="reservation-note">
+              <span>Finalidade</span>
+              <strong>{request.purpose}</strong>
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function ApprovalsView(props: Props) {
+  const { pendingRequests, hasHydrated } = useReservationStats(props);
+  const userCourseIds = new Set(
+    props.courses
+      .filter((course) =>
+        course.approvers.some(({ user }) => user.id === props.currentUser.id),
+      )
+      .map((course) => course.id),
+  );
+  const courseRequests = pendingRequests.filter((request) =>
+    userCourseIds.has(request.course.id),
+  );
+  const adminQueueRequests = pendingRequests.filter(
+    (request) => !request.assignedApprover,
+  );
+  const visibleRequests =
+    props.currentUser.role === "ADMIN" ? pendingRequests : courseRequests;
+
+  return (
+    <section className="approvals-page">
+      <section className="approval-panel">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Coordenacao</p>
+            <h2>Solicitacoes para decisao</h2>
+          </div>
+          <Check size={22} />
+        </div>
+
+        <div className="request-list">
+          {visibleRequests.length === 0 && (
+            <p className="empty-state">Nenhuma solicitacao pendente para seu perfil.</p>
+          )}
+
+          {visibleRequests.map((request) => (
+            <ApprovalCard
+              key={request.id}
+              request={request}
+              currentApprover={props.currentUser}
+              hasHydrated={hasHydrated}
+            />
+          ))}
+        </div>
+      </section>
+
+      {props.currentUser.role === "ADMIN" && (
+        <section className="approval-panel">
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">Administrativo</p>
+              <h2>Fila geral sem aprovador</h2>
+            </div>
+            <Clock3 size={22} />
+          </div>
+
+          <div className="request-list">
+            {adminQueueRequests.length === 0 && (
+              <p className="empty-state">
+                Nenhuma solicitacao sem aprovador configurado.
+              </p>
+            )}
+
+            {adminQueueRequests.map((request) => (
+              <ApprovalCard
+                key={request.id}
+                request={request}
+                currentApprover={props.currentUser}
+                hasHydrated={hasHydrated}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+    </section>
+  );
+}
+
+function AgendaView(props: Props) {
+  const { reservationRequests, hasHydrated } = useReservationStats(props);
+  const [dateFilter, setDateFilter] = useState(props.initialDate);
+  const [statusFilter, setStatusFilter] = useState("TODOS");
+  const now = new Date();
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  const filteredRequests = reservationRequests.filter((request) => {
+    const dateMatches = inputDateFromValue(request.startAt) === dateFilter;
+    const statusMatches = statusFilter === "TODOS" || request.status === statusFilter;
+
+    return dateMatches && statusMatches;
+  });
+
+  return (
+    <section className="calendar-panel single-panel">
+      <div className="section-heading">
+        <div>
+          <p className="eyebrow">Calendario</p>
+          <h2>Agenda recente</h2>
+        </div>
+        <CalendarDays size={22} />
+      </div>
+
+      <div className="agenda-controls">
+        <label>
+          Data
+          <input
+            type="date"
+            value={dateFilter}
+            onChange={(event) => setDateFilter(event.target.value)}
+          />
+        </label>
+        <div className="segmented-group">
+          {[
+            ["TODOS", "Todos"],
+            ["APROVADA", "Aprovadas"],
+            ["PENDENTE", "Pendentes"],
+            ["RECUSADA", "Recusadas"],
+          ].map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              className={statusFilter === value ? "active" : ""}
+              onClick={() => setStatusFilter(value)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="timeline">
+        {filteredRequests.length === 0 && (
+          <p className="empty-state">Nenhuma reserva encontrada para este filtro.</p>
+        )}
+
+        {filteredRequests.map((request) => {
+          const operationalStatus = getDailyOperationalStatus(request, nowMinutes);
+
+          return (
+            <article className={`timeline-item ${operationalStatus.className}`} key={request.id}>
+              <span className={`timeline-dot ${operationalStatus.className}`} />
+              <div>
+                <strong>{request.space.name}</strong>
+                <span>
+                  {hasHydrated ? formatDateTime(request.startAt) : "--/--/--, --:--"}
+                </span>
+                <p>
+                  {request.course.code} - {request.discipline.name} (
+                  {operationalStatus.label})
+                </p>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function SpacesView({ initialDate, reservationRequests, spaces }: Props) {
+  const now = new Date();
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  const todayRequests = reservationRequests.filter(
+    (request) => inputDateFromValue(request.startAt) === initialDate,
+  );
+
+  return (
+    <section className="environment-strip single-panel">
+      <div className="section-heading">
+        <div>
+          <p className="eyebrow">Cadastro base</p>
+          <h2>Ambientes cadastrados</h2>
+        </div>
+        <Building2 size={22} />
+      </div>
+      <div className="environment-grid">
+        {spaces.map((space) => {
+          const spaceRequests = todayRequests
+            .filter((request) => request.space.id === space.id)
+            .sort(
+              (a, b) =>
+                new Date(a.startAt).getTime() - new Date(b.startAt).getTime(),
+            );
+          const currentRequest = spaceRequests.find((request) => {
+            const startMinutes = minutesFromDateTime(request.startAt);
+            const endMinutes = minutesFromDateTime(request.endAt);
+
+            return (
+              ["PENDENTE", "APROVADA"].includes(request.status) &&
+              startMinutes <= nowMinutes &&
+              endMinutes >= nowMinutes
+            );
+          });
+          const nextRequest = spaceRequests.find((request) => {
+            const startMinutes = minutesFromDateTime(request.startAt);
+
+            return (
+              ["PENDENTE", "APROVADA"].includes(request.status) &&
+              startMinutes > nowMinutes
+            );
+          });
+          const availability = currentRequest
+            ? getDailyOperationalStatus(currentRequest, nowMinutes)
+            : {
+                label: "Livre agora",
+                className: "livre",
+              };
+
+          return (
+            <article className={`environment-card ${availability.className}`} key={space.id}>
+              <span className={`status-pill ${availability.className}`}>
+                {availability.label}
+              </span>
+              <strong>{space.name}</strong>
+              <span>
+                {spaceTypeLabels[space.type]} - {space.capacity} lugares
+              </span>
+              <p>{space.location}</p>
+              <div className="tag-row">
+                {space.resources.map(({ resource }) => (
+                  <span key={resource.id}>{resource.name}</span>
+                ))}
+              </div>
+              <div className="environment-next">
+                <span>Proxima reserva</span>
+                <strong>
+                  {nextRequest
+                    ? `${formatTimeRange(nextRequest.startAt, nextRequest.endAt)} - ${nextRequest.course.code}`
+                    : "Sem novas reservas hoje"}
+                </strong>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function RegistrationsView({ courses, resources, spaces, users }: Props) {
+  const [disciplineCourseId, setDisciplineCourseId] = useState(courses[0]?.id ?? "");
+  const [classGroupCourseId, setClassGroupCourseId] = useState(courses[0]?.id ?? "");
+  const [approverCourseId, setApproverCourseId] = useState(courses[0]?.id ?? "");
+  const [approverUserId, setApproverUserId] = useState(
+    users.find((user) => user.role === "APROVADOR" || user.role === "ADMIN")?.id ?? "",
+  );
+  const [spaceType, setSpaceType] = useState("LABORATORIO");
+  const courseOptions = courses.map((course) => ({
+    value: course.id,
+    label: course.name,
+  }));
+  const approverOptions = users
+    .filter((user) => user.role === "APROVADOR" || user.role === "ADMIN")
+    .map((user) => ({
+      value: user.id,
+      label: `${user.name} (${roleLabels[user.role] ?? user.role})`,
+    }));
+  const coursesWithoutApprover = courses.filter(
+    (course) => course.approvers.length === 0,
+  );
+  const spaceTypeOptions = [
+    { value: "LABORATORIO", label: "Laboratorio" },
+    { value: "SALA", label: "Sala" },
+    { value: "AUDITORIO", label: "Auditorio" },
+    { value: "OUTRO", label: "Outro" },
+  ];
+
+  return (
+    <section className="registrations-page">
+      <div className="registration-grid">
+        <form className="registration-card" action={createCourse}>
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">Academico</p>
+              <h2>Novo curso</h2>
+            </div>
+            <GraduationCap size={22} />
+          </div>
+
+          <label>
+            Nome do curso
+            <input name="name" placeholder="Ex.: Engenharia de Software" required />
+          </label>
+          <label>
+            Codigo
+            <input name="code" placeholder="Ex.: ES" required />
+          </label>
+          <button className="primary-button" type="submit">
+            Salvar curso
+          </button>
+        </form>
+
+        <form className="registration-card" action={createDiscipline}>
+          <input type="hidden" name="courseId" value={disciplineCourseId} />
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">Academico</p>
+              <h2>Nova disciplina</h2>
+            </div>
+            <GraduationCap size={22} />
+          </div>
+
+          <CustomSelect
+            label="Curso"
+            value={disciplineCourseId}
+            options={courseOptions}
+            onChange={setDisciplineCourseId}
+          />
+          <label>
+            Nome da disciplina
+            <input name="name" placeholder="Ex.: Banco de Dados II" required />
+          </label>
+          <label>
+            Codigo
+            <input name="code" placeholder="Ex.: BD2" required />
+          </label>
+          <button className="primary-button" type="submit" disabled={!disciplineCourseId}>
+            Salvar disciplina
+          </button>
+        </form>
+
+        <form className="registration-card" action={createClassGroup}>
+          <input type="hidden" name="courseId" value={classGroupCourseId} />
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">Academico</p>
+              <h2>Nova turma</h2>
+            </div>
+            <Users size={22} />
+          </div>
+
+          <CustomSelect
+            label="Curso"
+            value={classGroupCourseId}
+            options={courseOptions}
+            onChange={setClassGroupCourseId}
+          />
+          <label>
+            Nome da turma
+            <input name="name" placeholder="Ex.: ES-5A" required />
+          </label>
+          <label>
+            Periodo
+            <input name="period" placeholder="Ex.: Noturno" required />
+          </label>
+          <button className="primary-button" type="submit" disabled={!classGroupCourseId}>
+            Salvar turma
+          </button>
+        </form>
+
+        <form className="registration-card wide" action={createSpace}>
+          <input type="hidden" name="type" value={spaceType} />
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">Ambientes</p>
+              <h2>Novo ambiente</h2>
+            </div>
+            <DoorOpen size={22} />
+          </div>
+
+          <div className="field-grid">
+            <label>
+              Nome
+              <input name="name" placeholder="Ex.: Laboratorio de Informatica 03" required />
+            </label>
+            <CustomSelect
+              label="Tipo"
+              value={spaceType}
+              options={spaceTypeOptions}
+              onChange={setSpaceType}
+            />
+            <label>
+              Capacidade
+              <input name="capacity" type="number" min="1" placeholder="Ex.: 32" required />
+            </label>
+            <label>
+              Localizacao
+              <input name="location" placeholder="Ex.: Bloco B - 2o andar" required />
+            </label>
+          </div>
+
+          <fieldset className="resource-selector">
+            <legend>
+              <Filter size={18} />
+              Recursos disponiveis
+            </legend>
+            <div className="chip-grid">
+              {resources.map((resource) => (
+                <label key={resource.id} className="chip">
+                  <input name="resourceIds" type="checkbox" value={resource.id} />
+                  <span>{resource.name}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+
+          <label>
+            Observacoes
+            <textarea
+              name="notes"
+              rows={3}
+              placeholder="Ex.: indicado para aulas praticas com uso de computadores"
+            />
+          </label>
+
+          <button className="primary-button" type="submit">
+            Salvar ambiente
+          </button>
+        </form>
+      </div>
+
+      <section className="registration-summary">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Aprovacao</p>
+            <h2>Aprovadores por curso</h2>
+          </div>
+          <Check size={22} />
+        </div>
+
+        <form className="approver-form" action={assignCourseApprover}>
+          <input type="hidden" name="courseId" value={approverCourseId} />
+          <input type="hidden" name="userId" value={approverUserId} />
+          <CustomSelect
+            label="Curso"
+            value={approverCourseId}
+            options={courseOptions}
+            onChange={setApproverCourseId}
+          />
+          <CustomSelect
+            label="Aprovador"
+            value={approverUserId}
+            options={approverOptions}
+            onChange={setApproverUserId}
+          />
+          <button
+            className="primary-button"
+            type="submit"
+            disabled={!approverCourseId || !approverUserId}
+          >
+            Vincular aprovador
+          </button>
+        </form>
+
+        {coursesWithoutApprover.length > 0 && (
+          <div className="warning-panel">
+            <span>Cursos sem aprovador</span>
+            <p>
+              Solicitações desses cursos irão para a fila administrativa geral.
+            </p>
+            <div className="tag-row">
+              {coursesWithoutApprover.map((course) => (
+                <span key={course.id}>{course.name}</span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="approver-list">
+          {courses.map((course) => (
+            <article className="approver-course-card" key={course.id}>
+              <div>
+                <strong>{course.name}</strong>
+                <span>{course.code}</span>
+              </div>
+              <div className="approver-chip-list">
+                {course.approvers.length === 0 && (
+                  <span className="muted-chip">Sem aprovador</span>
+                )}
+                {course.approvers.map(({ user }) => (
+                  <form action={removeCourseApprover} key={user.id}>
+                    <input type="hidden" name="courseId" value={course.id} />
+                    <input type="hidden" name="userId" value={user.id} />
+                    <button type="submit" title="Remover aprovador">
+                      {user.name}
+                      <X size={14} />
+                    </button>
+                  </form>
+                ))}
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="registration-summary">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Resumo</p>
+            <h2>Base atual</h2>
+          </div>
+          <LayoutDashboard size={22} />
+        </div>
+
+        <div className="summary-grid">
+          <Metric icon={GraduationCap} label="Cursos" value={courses.length} />
+          <Metric icon={DoorOpen} label="Ambientes" value={spaces.length} />
+          <Metric icon={Filter} label="Recursos" value={resources.length} />
+        </div>
+      </section>
+    </section>
+  );
+}
+
+function ApprovalCard({
+  request,
+  currentApprover,
+  hasHydrated,
+}: {
+  request: ReservationRequest;
+  currentApprover: User;
+  hasHydrated: boolean;
+}) {
+  return (
+    <article className="request-card">
+      <div className="request-card-header">
+        <div>
+          <span className="status-pill pendente">Pendente</span>
+          <h3>{request.space.name}</h3>
+        </div>
+        <span className="date-badge">
+          <Clock3 size={15} />
+          {hasHydrated ? formatTimeRange(request.startAt, request.endAt) : "--:-- - --:--"}
+        </span>
+      </div>
+
+      <p>
+        {request.discipline.name} - {request.classGroup.name}
+      </p>
+      <p>{request.purpose}</p>
+
+      <div className="request-meta">
+        <span>{request.course.name}</span>
+        <span>{request.estimatedStudents} alunos</span>
+        <span>{request.space.location}</span>
+        <span>Docente: {request.requester.name}</span>
+        <span>
+          {request.assignedApprover
+            ? `Aprovador: ${request.assignedApprover.name}`
+            : "Fila administrativa geral"}
+        </span>
+      </div>
+
+      <div className="approval-actions">
+        <form action={approveReservationRequest}>
+          <input type="hidden" name="requestId" value={request.id} />
+          <input type="hidden" name="decidedById" value={currentApprover.id} />
+          <button className="approve-button" type="submit">
+            <Check size={17} />
+            Aprovar
+          </button>
+        </form>
+
+        <form action={rejectReservationRequest}>
+          <input type="hidden" name="requestId" value={request.id} />
+          <input type="hidden" name="decidedById" value={currentApprover.id} />
+          <input
+            name="decisionNote"
+            placeholder="Motivo da recusa"
+            aria-label="Motivo da recusa"
+            required
+          />
+          <button className="reject-button" type="submit">
+            <X size={17} />
+            Recusar
+          </button>
+        </form>
+      </div>
+    </article>
+  );
+}
+
+function Metric({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: number;
+}) {
+  return (
+    <article className="metric">
+      <Icon size={20} />
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </article>
+  );
+}
+
+function useReservationStats({
+  currentRequester,
+  initialDate,
+  reservationRequests,
+  spaces,
+}: Props) {
+  const [hasHydrated, setHasHydrated] = useState(false);
+  const pendingRequests = reservationRequests.filter(
+    (request) => request.status === "PENDENTE",
+  );
+  const approvedRequests = reservationRequests.filter(
+    (request) => request.status === "APROVADA",
+  );
+  const rejectedRequests = reservationRequests.filter(
+    (request) => request.status === "RECUSADA",
+  );
+
+  useEffect(() => {
+    setHasHydrated(true);
+  }, []);
+
+  return {
+    spaces,
+    currentRequester,
+    initialDate,
+    reservationRequests,
+    pendingRequests,
+    approvedRequests,
+    rejectedRequests,
+    hasHydrated,
+  };
+}

@@ -1,0 +1,142 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  DOCENTE
+  APROVADOR
+  ADMIN
+  DISCENTE
+}
+
+enum RequestStatus {
+  PENDENTE
+  APROVADA
+  RECUSADA
+  CANCELADA
+}
+
+enum SpaceType {
+  SALA
+  LABORATORIO
+  AUDITORIO
+  OUTRO
+}
+
+model User {
+  id                 String               @id @default(cuid())
+  name               String
+  email              String               @unique
+  role               UserRole             @default(DOCENTE)
+  active             Boolean              @default(true)
+  createdAt          DateTime             @default(now())
+  courseApprovals    CourseApprover[]
+  requests           ReservationRequest[] @relation("RequesterRequests")
+  assignedApprovals  ReservationRequest[] @relation("AssignedApprovals")
+  decisions          ReservationRequest[] @relation("ApprovalDecisions")
+}
+
+model Course {
+  id          String               @id @default(cuid())
+  name        String
+  code        String               @unique
+  active      Boolean              @default(true)
+  approvers   CourseApprover[]
+  disciplines Discipline[]
+  classGroups ClassGroup[]
+  requests    ReservationRequest[]
+}
+
+model CourseApprover {
+  courseId String
+  userId   String
+  course   Course @relation(fields: [courseId], references: [id])
+  user     User   @relation(fields: [userId], references: [id])
+
+  @@id([courseId, userId])
+}
+
+model Discipline {
+  id        String               @id @default(cuid())
+  name      String
+  code      String
+  active    Boolean              @default(true)
+  courseId  String
+  course    Course               @relation(fields: [courseId], references: [id])
+  requests  ReservationRequest[]
+
+  @@unique([courseId, code])
+}
+
+model ClassGroup {
+  id        String               @id @default(cuid())
+  name      String
+  period    String
+  active    Boolean              @default(true)
+  courseId  String
+  course    Course               @relation(fields: [courseId], references: [id])
+  requests  ReservationRequest[]
+
+  @@unique([courseId, name])
+}
+
+model Space {
+  id        String               @id @default(cuid())
+  name      String               @unique
+  type      SpaceType
+  capacity  Int
+  location  String
+  notes     String?
+  active    Boolean              @default(true)
+  resources SpaceResource[]
+  requests  ReservationRequest[]
+}
+
+model Resource {
+  id      String            @id @default(cuid())
+  name    String            @unique
+  spaces  SpaceResource[]
+}
+
+model SpaceResource {
+  spaceId    String
+  resourceId String
+  space      Space    @relation(fields: [spaceId], references: [id])
+  resource   Resource @relation(fields: [resourceId], references: [id])
+
+  @@id([spaceId, resourceId])
+}
+
+model ReservationRequest {
+  id                  String        @id @default(cuid())
+  requesterId         String
+  courseId            String
+  disciplineId        String
+  classGroupId        String
+  spaceId             String
+  assignedApproverId  String?
+  decidedById         String?
+  startAt             DateTime
+  endAt               DateTime
+  estimatedStudents   Int
+  purpose             String
+  status              RequestStatus @default(PENDENTE)
+  decisionNote        String?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  requester           User          @relation("RequesterRequests", fields: [requesterId], references: [id])
+  assignedApprover    User?         @relation("AssignedApprovals", fields: [assignedApproverId], references: [id])
+  decidedBy           User?         @relation("ApprovalDecisions", fields: [decidedById], references: [id])
+  course              Course        @relation(fields: [courseId], references: [id])
+  discipline          Discipline    @relation(fields: [disciplineId], references: [id])
+  classGroup          ClassGroup    @relation(fields: [classGroupId], references: [id])
+  space               Space         @relation(fields: [spaceId], references: [id])
+
+  @@index([spaceId, startAt, endAt])
+  @@index([courseId, status])
+}
