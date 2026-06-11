@@ -63,6 +63,10 @@ body {
   border-color: rgba(37, 111, 92, 0.28);
 }
 
+.toast-card.error {
+  border-color: rgba(185, 66, 66, 0.32);
+}
+
 .toast-icon {
   display: grid;
   width: 38px;
@@ -76,6 +80,11 @@ body {
 .toast-card.info .toast-icon {
   background: #e7f3ef;
   color: var(--primary-strong);
+}
+
+.toast-card.error .toast-icon {
+  background: #f8dddd;
+  color: var(--danger);
 }
 
 .toast-card strong {

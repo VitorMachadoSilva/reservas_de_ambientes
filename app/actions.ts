@@ -1,6 +1,6 @@
 "use server";
 
-import { RequestStatus, SpaceType, UserRole } from "@prisma/client";
+import { Prisma, RequestStatus, SpaceType, UserRole } from "@prisma/client";
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -20,6 +20,13 @@ function revalidateAppPaths() {
   for (const path of appPaths) {
     revalidatePath(path);
   }
+}
+
+function isUniqueConstraintError(error: unknown) {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === "P2002"
+  );
 }
 
 export async function loginAsUser(formData: FormData) {
@@ -95,16 +102,16 @@ export async function createReservationRequest(formData: FormData) {
   const endAt = buildDateTime(date, endTime);
 
   if (!Number.isFinite(estimatedStudents) || estimatedStudents <= 0) {
-    throw new Error("Informe uma quantidade valida de alunos.");
+    redirect("/nova-solicitacao?toast=alunos-invalidos");
   }
 
   if (endAt <= startAt) {
-    throw new Error("O horario final precisa ser maior que o horario inicial.");
+    redirect("/nova-solicitacao?toast=horario-invalido");
   }
 
   const conflict = await hasSpaceConflict(spaceId, startAt, endAt);
   if (conflict) {
-    throw new Error("Esse ambiente ja possui uma reserva aprovada ou pendente nesse horario.");
+    redirect("/nova-solicitacao?toast=conflito-horario");
   }
 
   const courseApprover = await prisma.courseApprover.findFirst({
@@ -155,7 +162,7 @@ export async function approveReservationRequest(formData: FormData) {
     request.course.approvers.some((item) => item.userId === decidedById);
 
   if (!canApprove) {
-    throw new Error("Este usuario nao pode aprovar solicitacoes deste curso.");
+    redirect("/aprovacoes?toast=sem-permissao-aprovacao");
   }
 
   const conflict = await prisma.reservationRequest.findFirst({
@@ -175,7 +182,7 @@ export async function approveReservationRequest(formData: FormData) {
   });
 
   if (conflict) {
-    throw new Error("Nao e possivel aprovar: ja existe reserva aprovada nesse horario.");
+    redirect("/aprovacoes?toast=conflito-aprovacao");
   }
 
   await prisma.reservationRequest.update({
@@ -194,7 +201,13 @@ export async function approveReservationRequest(formData: FormData) {
 export async function rejectReservationRequest(formData: FormData) {
   const requestId = requiredString(formData, "requestId");
   const decidedById = requiredString(formData, "decidedById");
-  const decisionNote = requiredString(formData, "decisionNote");
+  const decisionNoteValue = formData.get("decisionNote");
+  const decisionNote =
+    typeof decisionNoteValue === "string" ? decisionNoteValue.trim() : "";
+
+  if (!decisionNote) {
+    redirect("/aprovacoes?toast=motivo-recusa-obrigatorio");
+  }
 
   const request = await prisma.reservationRequest.findUniqueOrThrow({
     where: { id: requestId },
@@ -214,7 +227,7 @@ export async function rejectReservationRequest(formData: FormData) {
     request.course.approvers.some((item) => item.userId === decidedById);
 
   if (!canReject) {
-    throw new Error("Este usuario nao pode recusar solicitacoes deste curso.");
+    redirect("/aprovacoes?toast=sem-permissao-aprovacao");
   }
 
   await prisma.reservationRequest.update({
@@ -234,12 +247,20 @@ export async function createCourse(formData: FormData) {
   const name = requiredString(formData, "name");
   const code = requiredString(formData, "code").toUpperCase();
 
-  await prisma.course.create({
-    data: {
-      name,
-      code,
-    },
-  });
+  try {
+    await prisma.course.create({
+      data: {
+        name,
+        code,
+      },
+    });
+  } catch (error) {
+    if (isUniqueConstraintError(error)) {
+      redirect("/cadastros?toast=curso-duplicado");
+    }
+
+    throw error;
+  }
 
   revalidateAppPaths();
   redirect("/cadastros?toast=curso-criado");
@@ -250,13 +271,21 @@ export async function createDiscipline(formData: FormData) {
   const name = requiredString(formData, "name");
   const code = requiredString(formData, "code").toUpperCase();
 
-  await prisma.discipline.create({
-    data: {
-      courseId,
-      name,
-      code,
-    },
-  });
+  try {
+    await prisma.discipline.create({
+      data: {
+        courseId,
+        name,
+        code,
+      },
+    });
+  } catch (error) {
+    if (isUniqueConstraintError(error)) {
+      redirect("/cadastros?toast=disciplina-duplicada");
+    }
+
+    throw error;
+  }
 
   revalidateAppPaths();
   redirect("/cadastros?toast=disciplina-criada");
@@ -267,13 +296,21 @@ export async function createClassGroup(formData: FormData) {
   const name = requiredString(formData, "name");
   const period = requiredString(formData, "period");
 
-  await prisma.classGroup.create({
-    data: {
-      courseId,
-      name,
-      period,
-    },
-  });
+  try {
+    await prisma.classGroup.create({
+      data: {
+        courseId,
+        name,
+        period,
+      },
+    });
+  } catch (error) {
+    if (isUniqueConstraintError(error)) {
+      redirect("/cadastros?toast=turma-duplicada");
+    }
+
+    throw error;
+  }
 
   revalidateAppPaths();
   redirect("/cadastros?toast=turma-criada");
@@ -290,23 +327,31 @@ export async function createSpace(formData: FormData) {
   );
 
   if (!Number.isFinite(capacity) || capacity <= 0) {
-    throw new Error("Informe uma capacidade valida.");
+    redirect("/cadastros?toast=capacidade-invalida");
   }
 
-  await prisma.space.create({
-    data: {
-      name,
-      type: type as SpaceType,
-      capacity,
-      location,
-      notes: notes || null,
-      resources: {
-        create: resourceIds.map((resourceId) => ({
-          resourceId,
-        })),
+  try {
+    await prisma.space.create({
+      data: {
+        name,
+        type: type as SpaceType,
+        capacity,
+        location,
+        notes: notes || null,
+        resources: {
+          create: resourceIds.map((resourceId) => ({
+            resourceId,
+          })),
+        },
       },
-    },
-  });
+    });
+  } catch (error) {
+    if (isUniqueConstraintError(error)) {
+      redirect("/cadastros?toast=ambiente-duplicado");
+    }
+
+    throw error;
+  }
 
   revalidateAppPaths();
   redirect("/cadastros?toast=ambiente-criado");
@@ -321,7 +366,7 @@ export async function assignCourseApprover(formData: FormData) {
   });
 
   if (user.role !== UserRole.APROVADOR && user.role !== UserRole.ADMIN) {
-    throw new Error("Selecione um usuario aprovador ou administrador.");
+    redirect("/cadastros?toast=aprovador-invalido");
   }
 
   await prisma.courseApprover.upsert({
