@@ -46,13 +46,13 @@ export async function loginAsUser(formData: FormData) {
     path: "/",
   });
 
-  redirect("/");
+  redirect("/?toast=login-realizado");
 }
 
 export async function logoutUser() {
   const cookieStore = await cookies();
   cookieStore.delete("reservation_user_id");
-  redirect("/login");
+  redirect("/login?toast=logout-realizado");
 }
 
 function requiredString(formData: FormData, key: string) {

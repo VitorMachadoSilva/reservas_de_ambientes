@@ -37,6 +37,8 @@ body {
   z-index: 80;
   right: 22px;
   bottom: 22px;
+  display: grid;
+  gap: 10px;
   width: min(420px, calc(100vw - 32px));
   pointer-events: none;
 }

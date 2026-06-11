@@ -2,17 +2,28 @@
 
 import { Check, Info, X } from "lucide-react";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type ToastTone = "success" | "info" | "error";
 
 type ToastMessage = {
+  id?: string;
   title: string;
   description: string;
   tone: ToastTone;
 };
 
 const toastMessages: Record<string, ToastMessage> = {
+  "login-realizado": {
+    title: "Login realizado",
+    description: "Sessao iniciada com o perfil selecionado.",
+    tone: "success",
+  },
+  "logout-realizado": {
+    title: "Sessao encerrada",
+    description: "Voce saiu do sistema com seguranca.",
+    tone: "info",
+  },
   "alunos-invalidos": {
     title: "Quantidade invalida",
     description: "Informe uma quantidade de alunos maior que zero.",
@@ -128,47 +139,113 @@ export function ToastHost() {
     () => (toastKey ? toastMessages[toastKey] : undefined),
     [toastKey],
   );
-  const [visibleToast, setVisibleToast] = useState<ToastMessage | null>(null);
+  const [visibleToasts, setVisibleToasts] = useState<ToastMessage[]>([]);
+  const timeoutRefs = useRef(new Map<string, number>());
+  const consumedToastRef = useRef("");
+
+  function clearToastTimeout(toastId: string) {
+    const timeout = timeoutRefs.current.get(toastId);
+
+    if (!timeout) return;
+
+    window.clearTimeout(timeout);
+    timeoutRefs.current.delete(toastId);
+  }
+
+  function removeToast(toastId: string) {
+    clearToastTimeout(toastId);
+    setVisibleToasts((current) =>
+      current.filter((visibleToast) => visibleToast.id !== toastId),
+    );
+  }
 
   useEffect(() => {
-    if (!toast) return;
+    if (!toast || !toastKey) return;
 
-    setVisibleToast(toast);
+    const consumedKey = `${pathname}?${searchParams.toString()}`;
+    if (consumedToastRef.current === consumedKey) return;
+    consumedToastRef.current = consumedKey;
+
+    const id = `${toastKey}-${Date.now()}`;
+    const nextToast = { ...toast, id };
+
+    setVisibleToasts((current) => {
+      const shouldReplaceStack =
+        toastKey === "login-realizado" || toastKey === "logout-realizado";
+
+      if (shouldReplaceStack) {
+        for (const existingId of timeoutRefs.current.keys()) {
+          clearToastTimeout(existingId);
+        }
+
+        return [nextToast];
+      }
+
+      const nextStack = [...current, nextToast];
+      const removedToasts = nextStack.length > 3 ? nextStack.slice(0, -3) : [];
+
+      for (const removedToast of removedToasts) {
+        if (removedToast.id) {
+          clearToastTimeout(removedToast.id);
+        }
+      }
+
+      return nextStack.slice(-3);
+    });
+
     const nextParams = new URLSearchParams(searchParams.toString());
     nextParams.delete("toast");
     const nextQuery = nextParams.toString();
     window.history.replaceState(null, "", `${pathname}${nextQuery ? `?${nextQuery}` : ""}`);
 
     const timeout = window.setTimeout(() => {
-      setVisibleToast(null);
-    }, 4200);
+      removeToast(id);
+    }, 5000);
 
-    return () => window.clearTimeout(timeout);
-  }, [pathname, searchParams, toast]);
+    timeoutRefs.current.set(id, timeout);
+  }, [pathname, searchParams, toast, toastKey]);
 
-  if (!visibleToast) return null;
+  useEffect(() => {
+    return () => {
+      for (const timeout of timeoutRefs.current.values()) {
+        window.clearTimeout(timeout);
+      }
 
-  const Icon =
-    visibleToast.tone === "success" ? Check : visibleToast.tone === "error" ? X : Info;
+      timeoutRefs.current.clear();
+    };
+  }, []);
+
+  if (visibleToasts.length === 0) return null;
 
   return (
     <div className="toast-viewport" role="status" aria-live="polite">
-      <article className={`toast-card ${visibleToast.tone}`}>
-        <div className="toast-icon">
-          <Icon size={18} />
-        </div>
-        <div>
-          <strong>{visibleToast.title}</strong>
-          <p>{visibleToast.description}</p>
-        </div>
-        <button
-          type="button"
-          onClick={() => setVisibleToast(null)}
-          title="Fechar aviso"
-        >
-          <X size={16} />
-        </button>
-      </article>
+      {visibleToasts.map((visibleToast) => {
+        const Icon =
+          visibleToast.tone === "success"
+            ? Check
+            : visibleToast.tone === "error"
+              ? X
+              : Info;
+
+        return (
+          <article className={`toast-card ${visibleToast.tone}`} key={visibleToast.id}>
+            <div className="toast-icon">
+              <Icon size={18} />
+            </div>
+            <div>
+              <strong>{visibleToast.title}</strong>
+              <p>{visibleToast.description}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => visibleToast.id && removeToast(visibleToast.id)}
+              title="Fechar aviso"
+            >
+              <X size={16} />
+            </button>
+          </article>
+        );
+      })}
     </div>
   );
 }
