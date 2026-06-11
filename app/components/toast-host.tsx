@@ -2,18 +2,20 @@
 
 import { Check, Info, X } from "lucide-react";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type ToastTone = "success" | "info" | "error";
 
 type ToastMessage = {
-  id?: string;
+  id: string;
   title: string;
   description: string;
   tone: ToastTone;
 };
 
-const toastMessages: Record<string, ToastMessage> = {
+type ToastTemplate = Omit<ToastMessage, "id">;
+
+const toastMessages: Record<string, ToastTemplate> = {
   "login-realizado": {
     title: "Login realizado",
     description: "Sessao iniciada com o perfil selecionado.",
@@ -135,117 +137,81 @@ export function ToastHost() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const toastKey = searchParams.get("toast");
-  const toast = useMemo(
+  const toastTemplate = useMemo(
     () => (toastKey ? toastMessages[toastKey] : undefined),
     [toastKey],
   );
-  const [visibleToasts, setVisibleToasts] = useState<ToastMessage[]>([]);
-  const timeoutRefs = useRef(new Map<string, number>());
-  const consumedToastRef = useRef("");
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const consumedUrlRef = useRef("");
 
-  function clearToastTimeout(toastId: string) {
-    const timeout = timeoutRefs.current.get(toastId);
-
-    if (!timeout) return;
-
-    window.clearTimeout(timeout);
-    timeoutRefs.current.delete(toastId);
-  }
-
-  function removeToast(toastId: string) {
-    clearToastTimeout(toastId);
-    setVisibleToasts((current) =>
-      current.filter((visibleToast) => visibleToast.id !== toastId),
-    );
-  }
+  const removeToast = useCallback((toastId: string) => {
+    setToasts((current) => current.filter((toast) => toast.id !== toastId));
+  }, []);
 
   useEffect(() => {
-    if (!toast || !toastKey) return;
+    if (!toastKey || !toastTemplate) return;
 
-    const consumedKey = `${pathname}?${searchParams.toString()}`;
-    if (consumedToastRef.current === consumedKey) return;
-    consumedToastRef.current = consumedKey;
+    const currentUrl = `${pathname}?${searchParams.toString()}`;
+    if (consumedUrlRef.current === currentUrl) return;
+    consumedUrlRef.current = currentUrl;
 
-    const id = `${toastKey}-${Date.now()}`;
-    const nextToast = { ...toast, id };
+    const toast: ToastMessage = {
+      ...toastTemplate,
+      id: `${toastKey}-${crypto.randomUUID()}`,
+    };
+    const shouldReplaceStack =
+      toastKey === "login-realizado" || toastKey === "logout-realizado";
 
-    setVisibleToasts((current) => {
-      const shouldReplaceStack =
-        toastKey === "login-realizado" || toastKey === "logout-realizado";
-
-      if (shouldReplaceStack) {
-        for (const existingId of timeoutRefs.current.keys()) {
-          clearToastTimeout(existingId);
-        }
-
-        return [nextToast];
-      }
-
-      const nextStack = [...current, nextToast];
-      const removedToasts = nextStack.length > 3 ? nextStack.slice(0, -3) : [];
-
-      for (const removedToast of removedToasts) {
-        if (removedToast.id) {
-          clearToastTimeout(removedToast.id);
-        }
-      }
-
-      return nextStack.slice(-3);
-    });
+    setToasts((current) =>
+      shouldReplaceStack ? [toast] : [...current, toast].slice(-3),
+    );
 
     const nextParams = new URLSearchParams(searchParams.toString());
     nextParams.delete("toast");
     const nextQuery = nextParams.toString();
     window.history.replaceState(null, "", `${pathname}${nextQuery ? `?${nextQuery}` : ""}`);
+  }, [pathname, searchParams, toastKey, toastTemplate]);
 
-    const timeout = window.setTimeout(() => {
-      removeToast(id);
-    }, 5000);
-
-    timeoutRefs.current.set(id, timeout);
-  }, [pathname, searchParams, toast, toastKey]);
-
-  useEffect(() => {
-    return () => {
-      for (const timeout of timeoutRefs.current.values()) {
-        window.clearTimeout(timeout);
-      }
-
-      timeoutRefs.current.clear();
-    };
-  }, []);
-
-  if (visibleToasts.length === 0) return null;
+  if (toasts.length === 0) return null;
 
   return (
     <div className="toast-viewport" role="status" aria-live="polite">
-      {visibleToasts.map((visibleToast) => {
-        const Icon =
-          visibleToast.tone === "success"
-            ? Check
-            : visibleToast.tone === "error"
-              ? X
-              : Info;
-
-        return (
-          <article className={`toast-card ${visibleToast.tone}`} key={visibleToast.id}>
-            <div className="toast-icon">
-              <Icon size={18} />
-            </div>
-            <div>
-              <strong>{visibleToast.title}</strong>
-              <p>{visibleToast.description}</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => visibleToast.id && removeToast(visibleToast.id)}
-              title="Fechar aviso"
-            >
-              <X size={16} />
-            </button>
-          </article>
-        );
-      })}
+      {toasts.map((toast) => (
+        <ToastCard key={toast.id} toast={toast} onClose={removeToast} />
+      ))}
     </div>
+  );
+}
+
+function ToastCard({
+  onClose,
+  toast,
+}: {
+  onClose: (toastId: string) => void;
+  toast: ToastMessage;
+}) {
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      onClose(toast.id);
+    }, 5000);
+
+    return () => window.clearTimeout(timeout);
+  }, [onClose, toast.id]);
+
+  const Icon = toast.tone === "success" ? Check : toast.tone === "error" ? X : Info;
+
+  return (
+    <article className={`toast-card ${toast.tone}`}>
+      <div className="toast-icon">
+        <Icon size={18} />
+      </div>
+      <div>
+        <strong>{toast.title}</strong>
+        <p>{toast.description}</p>
+      </div>
+      <button type="button" onClick={() => onClose(toast.id)} title="Fechar aviso">
+        <X size={16} />
+      </button>
+    </article>
   );
 }
