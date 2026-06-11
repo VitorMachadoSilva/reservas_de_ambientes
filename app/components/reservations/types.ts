@@ -7,13 +7,16 @@ export type View =
   | "spaces"
   | "registrations-academic"
   | "registrations-spaces"
-  | "registrations-approvers";
+  | "registrations-approvers"
+  | "registrations-users"
+  | "registrations-resources";
 
 export type User = {
   id: string;
   name: string;
   email: string;
   role: string;
+  active: boolean;
 };
 
 export type SimpleCourse = {
@@ -48,6 +51,7 @@ export type ClassGroup = {
 export type Resource = {
   id: string;
   name: string;
+  active: boolean;
 };
 
 export type Space = {
@@ -96,6 +100,7 @@ export type ReservationWorkspaceProps = {
   classGroups: ClassGroup[];
   allClassGroups: ClassGroup[];
   resources: Resource[];
+  allResources: Resource[];
   spaces: Space[];
   allSpaces: Space[];
   users: User[];

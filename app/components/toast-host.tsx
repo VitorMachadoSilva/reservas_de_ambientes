@@ -211,6 +211,56 @@ const toastMessages: Record<string, ToastTemplate> = {
     description: "Se o curso ficar sem aprovador, as solicitacoes vao para a fila geral.",
     tone: "info",
   },
+  "usuario-duplicado": {
+    title: "Usuario ja cadastrado",
+    description: "Ja existe um usuario com esse e-mail.",
+    tone: "error",
+  },
+  "usuario-criado": {
+    title: "Usuario criado",
+    description: "O usuario ja pode ser selecionado no login simulado.",
+    tone: "success",
+  },
+  "usuario-atualizado": {
+    title: "Usuario atualizado",
+    description: "As informacoes e o perfil do usuario foram salvos.",
+    tone: "success",
+  },
+  "usuario-inativado": {
+    title: "Usuario inativado",
+    description: "Ele deixa de aparecer no login e em novas configuracoes.",
+    tone: "info",
+  },
+  "usuario-ativado": {
+    title: "Usuario ativado",
+    description: "O usuario voltou a ficar disponivel no sistema.",
+    tone: "success",
+  },
+  "recurso-duplicado": {
+    title: "Recurso ja cadastrado",
+    description: "Ja existe um recurso com esse nome.",
+    tone: "error",
+  },
+  "recurso-criado": {
+    title: "Recurso criado",
+    description: "Ele ja pode ser vinculado aos ambientes.",
+    tone: "success",
+  },
+  "recurso-atualizado": {
+    title: "Recurso atualizado",
+    description: "As informacoes do recurso foram salvas.",
+    tone: "success",
+  },
+  "recurso-inativado": {
+    title: "Recurso inativado",
+    description: "Ele nao aparecera em novos vinculos, mas o historico foi preservado.",
+    tone: "info",
+  },
+  "recurso-ativado": {
+    title: "Recurso ativado",
+    description: "O recurso voltou a ficar disponivel para ambientes.",
+    tone: "success",
+  },
 };
 
 export function ToastHost() {

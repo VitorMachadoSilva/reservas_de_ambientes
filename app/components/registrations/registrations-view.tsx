@@ -5,16 +5,22 @@ import {
   createClassGroup,
   createCourse,
   createDiscipline,
+  createResource,
   createSpace,
+  createUser,
   removeCourseApprover,
   setClassGroupActive,
   setCourseActive,
   setDisciplineActive,
+  setResourceActive,
   setSpaceActive,
+  setUserActive,
   updateClassGroup,
   updateCourse,
   updateDiscipline,
+  updateResource,
   updateSpace,
+  updateUser,
 } from "@/app/actions";
 import {
   Building2,
@@ -44,7 +50,7 @@ import { CustomSelect } from "../ui/custom-select";
 import { PaginationControls } from "../ui/pagination-controls";
 
 type RegistrationsViewProps = ReservationWorkspaceProps & {
-  section: "academic" | "spaces" | "approvers";
+  section: "academic" | "spaces" | "approvers" | "users" | "resources";
 };
 
 type AcademicItem = Course | Discipline | ClassGroup;
@@ -54,6 +60,7 @@ export function RegistrationsPageView({
   allCourses,
   allDisciplines,
   allSpaces,
+  allResources,
   courses,
   resources,
   section,
@@ -69,6 +76,9 @@ export function RegistrationsPageView({
   >("all");
   const [spacePage, setSpacePage] = useState(1);
   const [approverCoursePage, setApproverCoursePage] = useState(1);
+  const [userPage, setUserPage] = useState(1);
+  const [resourcePage, setResourcePage] = useState(1);
+  const [newUserRole, setNewUserRole] = useState("DOCENTE");
   const [disciplineCourseId, setDisciplineCourseId] = useState(courses[0]?.id ?? "");
   const [classGroupCourseId, setClassGroupCourseId] = useState(courses[0]?.id ?? "");
   const [approverCourseId, setApproverCourseId] = useState(courses[0]?.id ?? "");
@@ -126,11 +136,22 @@ export function RegistrationsPageView({
     (approverCoursePage - 1) * pageSize,
     approverCoursePage * pageSize,
   );
+  const visibleUsers = users.slice((userPage - 1) * pageSize, userPage * pageSize);
+  const visibleResources = allResources.slice(
+    (resourcePage - 1) * pageSize,
+    resourcePage * pageSize,
+  );
   const spaceTypeOptions = [
     { value: "LABORATORIO", label: "Laboratorio" },
     { value: "SALA", label: "Sala" },
     { value: "AUDITORIO", label: "Auditorio" },
     { value: "OUTRO", label: "Outro" },
+  ];
+  const roleOptions = [
+    { value: "DOCENTE", label: "Docente" },
+    { value: "APROVADOR", label: "Aprovador" },
+    { value: "ADMIN", label: "Administrador" },
+    { value: "DISCENTE", label: "Discente" },
   ];
 
   useEffect(() => {
@@ -148,6 +169,8 @@ export function RegistrationsPageView({
           ["/cadastros/academico", "academic", "Academico"],
           ["/cadastros/ambientes", "spaces", "Ambientes"],
           ["/cadastros/aprovadores", "approvers", "Aprovadores"],
+          ["/cadastros/usuarios", "users", "Usuarios"],
+          ["/cadastros/recursos", "resources", "Recursos"],
         ].map(([href, value, label]) => (
           <Link
             href={href}
@@ -501,6 +524,124 @@ export function RegistrationsPageView({
         </section>
       )}
 
+      {section === "users" && (
+        <div className="registration-grid">
+          <form className="registration-card wide" action={createUser}>
+            <input type="hidden" name="role" value={newUserRole} />
+            <div className="section-heading">
+              <div>
+                <p className="eyebrow">Usuarios</p>
+                <h2>Novo usuario</h2>
+              </div>
+              <Users size={22} />
+            </div>
+
+            <div className="field-grid">
+              <label>
+                Nome
+                <input name="name" placeholder="Ex.: Prof. Maria Silva" required />
+              </label>
+              <label>
+                E-mail
+                <input
+                  name="email"
+                  type="email"
+                  placeholder="maria@instituicao.edu"
+                  required
+                />
+              </label>
+              <CustomSelect
+                label="Perfil"
+                value={newUserRole}
+                options={roleOptions}
+                onChange={setNewUserRole}
+              />
+            </div>
+
+            <PendingButton className="primary-button" pendingLabel="Salvando...">
+              Salvar usuario
+            </PendingButton>
+          </form>
+
+          <section className="registration-card wide">
+            <div className="section-heading">
+              <div>
+                <p className="eyebrow">Manutencao</p>
+                <h2>Usuarios cadastrados</h2>
+              </div>
+              <Users size={22} />
+            </div>
+
+            <div className="maintenance-toolbar">
+              <span>{users.length} usuario(s) cadastrados</span>
+            </div>
+
+            <div className="space-management-list">
+              {visibleUsers.map((user) => (
+                <UserManagementCard key={user.id} user={user} />
+              ))}
+            </div>
+
+            <PaginationControls
+              onChange={setUserPage}
+              page={userPage}
+              pageSize={pageSize}
+              total={users.length}
+            />
+          </section>
+        </div>
+      )}
+
+      {section === "resources" && (
+        <div className="registration-grid">
+          <form className="registration-card wide" action={createResource}>
+            <div className="section-heading">
+              <div>
+                <p className="eyebrow">Recursos</p>
+                <h2>Novo recurso</h2>
+              </div>
+              <Filter size={22} />
+            </div>
+
+            <label>
+              Nome do recurso
+              <input name="name" placeholder="Ex.: Software de modelagem 3D" required />
+            </label>
+
+            <PendingButton className="primary-button" pendingLabel="Salvando...">
+              Salvar recurso
+            </PendingButton>
+          </form>
+
+          <section className="registration-card wide">
+            <div className="section-heading">
+              <div>
+                <p className="eyebrow">Manutencao</p>
+                <h2>Recursos cadastrados</h2>
+              </div>
+              <Filter size={22} />
+            </div>
+
+            <div className="maintenance-toolbar">
+              <span>{allResources.length} recurso(s) cadastrados</span>
+            </div>
+
+            <div className="space-management-list">
+              {visibleResources.map((resource) => (
+                <ResourceManagementCard key={resource.id} resource={resource} />
+              ))}
+            </div>
+
+            <PaginationControls
+              onChange={setResourcePage}
+              page={resourcePage}
+              pageSize={pageSize}
+              total={allResources.length}
+            />
+          </section>
+        </div>
+      )}
+
       <section className="registration-summary">
         <div className="section-heading">
           <div>
@@ -835,6 +976,216 @@ function AcademicManagementCard({
               name={isClassGroup ? "period" : "code"}
               value={secondaryValue}
               onChange={(event) => setSecondaryValue(event.target.value)}
+              required
+            />
+          </label>
+          <div className="management-actions">
+            <PendingButton
+              className="primary-button compact-action"
+              disabled={!isDirty}
+              pendingLabel="Salvando..."
+            >
+              Salvar
+            </PendingButton>
+            <button
+              className="secondary-button compact-action"
+              onClick={resetChanges}
+              type="button"
+            >
+              Cancelar
+            </button>
+          </div>
+        </form>
+      )}
+    </article>
+  );
+}
+
+function UserManagementCard({
+  user,
+}: {
+  user: ReservationWorkspaceProps["users"][number];
+}) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [name, setName] = useState(user.name);
+  const [email, setEmail] = useState(user.email);
+  const [role, setRole] = useState(user.role);
+  const roleOptions = [
+    { value: "DOCENTE", label: "Docente" },
+    { value: "APROVADOR", label: "Aprovador" },
+    { value: "ADMIN", label: "Administrador" },
+    { value: "DISCENTE", label: "Discente" },
+  ];
+  const isDirty =
+    name !== user.name || email !== user.email || role !== user.role;
+
+  function resetChanges() {
+    setName(user.name);
+    setEmail(user.email);
+    setRole(user.role);
+    setIsEditing(false);
+  }
+
+  return (
+    <article className={`academic-management-card ${user.active ? "active" : "inactive"}`}>
+      {!isEditing && (
+        <div className="maintenance-summary compact-summary">
+          <div>
+            <span className={`status-pill ${user.active ? "programada" : "finalizada"}`}>
+              {user.active ? "Ativo" : "Inativo"}
+            </span>
+            <h3>{user.name}</h3>
+            <p>
+              {user.email} - {roleLabels[user.role] ?? user.role}
+            </p>
+          </div>
+          <div className="maintenance-actions">
+            <button
+              className="edit-action-button"
+              onClick={() => setIsEditing(true)}
+              type="button"
+            >
+              <Edit3 size={15} />
+              Editar
+            </button>
+            <form action={setUserActive}>
+              <input type="hidden" name="id" value={user.id} />
+              <input type="hidden" name="active" value={user.active ? "false" : "true"} />
+              <PendingButton
+                className={`${user.active ? "reject-button" : "approve-button"} compact-action`}
+                pendingLabel={user.active ? "Inativando..." : "Ativando..."}
+              >
+                {user.active ? "Inativar" : "Ativar"}
+              </PendingButton>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {isEditing && (
+        <form action={updateUser} className="maintenance-edit-form">
+          <input type="hidden" name="id" value={user.id} />
+          <input type="hidden" name="role" value={role} />
+          <div className="academic-management-header">
+            <div>
+              <span className={`status-pill ${user.active ? "programada" : "finalizada"}`}>
+                {user.active ? "Ativo" : "Inativo"}
+              </span>
+              <h3>Editando {user.name}</h3>
+            </div>
+          </div>
+          <label>
+            Nome
+            <input
+              name="name"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              required
+            />
+          </label>
+          <label>
+            E-mail
+            <input
+              name="email"
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              required
+            />
+          </label>
+          <CustomSelect
+            label="Perfil"
+            value={role}
+            options={roleOptions}
+            onChange={setRole}
+          />
+          <div className="management-actions">
+            <PendingButton
+              className="primary-button compact-action"
+              disabled={!isDirty}
+              pendingLabel="Salvando..."
+            >
+              Salvar
+            </PendingButton>
+            <button
+              className="secondary-button compact-action"
+              onClick={resetChanges}
+              type="button"
+            >
+              Cancelar
+            </button>
+          </div>
+        </form>
+      )}
+    </article>
+  );
+}
+
+function ResourceManagementCard({
+  resource,
+}: {
+  resource: ReservationWorkspaceProps["allResources"][number];
+}) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [name, setName] = useState(resource.name);
+  const isDirty = name !== resource.name;
+
+  function resetChanges() {
+    setName(resource.name);
+    setIsEditing(false);
+  }
+
+  return (
+    <article className={`academic-management-card ${resource.active ? "active" : "inactive"}`}>
+      {!isEditing && (
+        <div className="maintenance-summary compact-summary">
+          <div>
+            <span className={`status-pill ${resource.active ? "programada" : "finalizada"}`}>
+              {resource.active ? "Ativo" : "Inativo"}
+            </span>
+            <h3>{resource.name}</h3>
+            <p>Recurso de ambiente</p>
+          </div>
+          <div className="maintenance-actions">
+            <button
+              className="edit-action-button"
+              onClick={() => setIsEditing(true)}
+              type="button"
+            >
+              <Edit3 size={15} />
+              Editar
+            </button>
+            <form action={setResourceActive}>
+              <input type="hidden" name="id" value={resource.id} />
+              <input type="hidden" name="active" value={resource.active ? "false" : "true"} />
+              <PendingButton
+                className={`${resource.active ? "reject-button" : "approve-button"} compact-action`}
+                pendingLabel={resource.active ? "Inativando..." : "Ativando..."}
+              >
+                {resource.active ? "Inativar" : "Ativar"}
+              </PendingButton>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {isEditing && (
+        <form action={updateResource} className="maintenance-edit-form">
+          <input type="hidden" name="id" value={resource.id} />
+          <div className="academic-management-header">
+            <div>
+              <span className={`status-pill ${resource.active ? "programada" : "finalizada"}`}>
+                {resource.active ? "Ativo" : "Inativo"}
+              </span>
+              <h3>Editando {resource.name}</h3>
+            </div>
+          </div>
+          <label>
+            Nome
+            <input
+              name="name"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
               required
             />
           </label>

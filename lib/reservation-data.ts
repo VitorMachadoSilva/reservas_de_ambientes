@@ -65,6 +65,7 @@ export async function getReservationPageData() {
     classGroups,
     allClassGroups,
     resources,
+    allResources,
     spaces,
     allSpaces,
     users,
@@ -102,7 +103,11 @@ export async function getReservationPageData() {
       orderBy: [{ active: "desc" }, { name: "asc" }],
     }),
     prisma.resource.findMany({
+      where: { active: true },
       orderBy: { name: "asc" },
+    }),
+    prisma.resource.findMany({
+      orderBy: [{ active: "desc" }, { name: "asc" }],
     }),
     prisma.space.findMany({
       where: { active: true },
@@ -151,6 +156,7 @@ export async function getReservationPageData() {
     classGroups: serialize(classGroups),
     allClassGroups: serialize(allClassGroups),
     resources: serialize(resources),
+    allResources: serialize(allResources),
     spaces: serialize(spaces),
     allSpaces: serialize(allSpaces),
     users: serialize(users),

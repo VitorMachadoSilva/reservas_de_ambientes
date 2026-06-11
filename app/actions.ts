@@ -17,6 +17,8 @@ const appPaths = [
   "/cadastros/academico",
   "/cadastros/ambientes",
   "/cadastros/aprovadores",
+  "/cadastros/usuarios",
+  "/cadastros/recursos",
 ];
 
 function revalidateAppPaths() {
@@ -622,6 +624,132 @@ export async function removeCourseApprover(formData: FormData) {
 
   revalidateAppPaths();
   redirect("/cadastros/aprovadores?toast=aprovador-removido");
+}
+
+export async function createUser(formData: FormData) {
+  const name = requiredString(formData, "name");
+  const email = requiredString(formData, "email").toLowerCase();
+  const role = requiredString(formData, "role") as UserRole;
+
+  try {
+    await prisma.user.create({
+      data: {
+        name,
+        email,
+        role,
+      },
+    });
+  } catch (error) {
+    if (isUniqueConstraintError(error)) {
+      redirect("/cadastros/usuarios?toast=usuario-duplicado");
+    }
+
+    throw error;
+  }
+
+  revalidateAppPaths();
+  redirect("/cadastros/usuarios?toast=usuario-criado");
+}
+
+export async function updateUser(formData: FormData) {
+  const id = requiredString(formData, "id");
+  const name = requiredString(formData, "name");
+  const email = requiredString(formData, "email").toLowerCase();
+  const role = requiredString(formData, "role") as UserRole;
+
+  try {
+    await prisma.user.update({
+      where: { id },
+      data: {
+        name,
+        email,
+        role,
+      },
+    });
+  } catch (error) {
+    if (isUniqueConstraintError(error)) {
+      redirect("/cadastros/usuarios?toast=usuario-duplicado");
+    }
+
+    throw error;
+  }
+
+  revalidateAppPaths();
+  redirect("/cadastros/usuarios?toast=usuario-atualizado");
+}
+
+export async function setUserActive(formData: FormData) {
+  const id = requiredString(formData, "id");
+  const active = requiredString(formData, "active") === "true";
+
+  await prisma.user.update({
+    where: { id },
+    data: { active },
+  });
+
+  revalidateAppPaths();
+  redirect(
+    active
+      ? "/cadastros/usuarios?toast=usuario-ativado"
+      : "/cadastros/usuarios?toast=usuario-inativado",
+  );
+}
+
+export async function createResource(formData: FormData) {
+  const name = requiredString(formData, "name");
+
+  try {
+    await prisma.resource.create({
+      data: { name },
+    });
+  } catch (error) {
+    if (isUniqueConstraintError(error)) {
+      redirect("/cadastros/recursos?toast=recurso-duplicado");
+    }
+
+    throw error;
+  }
+
+  revalidateAppPaths();
+  redirect("/cadastros/recursos?toast=recurso-criado");
+}
+
+export async function updateResource(formData: FormData) {
+  const id = requiredString(formData, "id");
+  const name = requiredString(formData, "name");
+
+  try {
+    await prisma.resource.update({
+      where: { id },
+      data: { name },
+    });
+  } catch (error) {
+    if (isUniqueConstraintError(error)) {
+      redirect("/cadastros/recursos?toast=recurso-duplicado");
+    }
+
+    throw error;
+  }
+
+  revalidateAppPaths();
+  redirect("/cadastros/recursos?toast=recurso-atualizado");
+}
+
+export async function setResourceActive(formData: FormData) {
+  const id = requiredString(formData, "id");
+  const active = requiredString(formData, "active") === "true";
+
+  await prisma.resource.update({
+    where: { id },
+    data: { active },
+  });
+
+  revalidateAppPaths();
+  redirect(
+    active
+      ? "/cadastros/recursos?toast=recurso-ativado"
+      : "/cadastros/recursos?toast=recurso-inativado",
+  );
 }
 
 export async function ensureDemoUsers() {

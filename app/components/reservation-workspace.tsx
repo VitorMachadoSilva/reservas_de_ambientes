@@ -22,6 +22,8 @@ const pageTitles: Record<View, [string, string]> = {
   "registrations-academic": ["Cadastros", "Base academica"],
   "registrations-spaces": ["Cadastros", "Ambientes"],
   "registrations-approvers": ["Cadastros", "Aprovadores por curso"],
+  "registrations-users": ["Cadastros", "Usuarios e perfis"],
+  "registrations-resources": ["Cadastros", "Recursos dos ambientes"],
 };
 
 const allowedViews: Record<View, string[]> = {
@@ -34,6 +36,8 @@ const allowedViews: Record<View, string[]> = {
   "registrations-academic": ["ADMIN"],
   "registrations-spaces": ["ADMIN"],
   "registrations-approvers": ["ADMIN"],
+  "registrations-users": ["ADMIN"],
+  "registrations-resources": ["ADMIN"],
 };
 
 export function ReservationWorkspace(props: ReservationWorkspaceProps) {
@@ -76,6 +80,10 @@ function ActiveView(props: ReservationWorkspaceProps) {
       return <RegistrationsPageView {...props} section="spaces" />;
     case "registrations-approvers":
       return <RegistrationsPageView {...props} section="approvers" />;
+    case "registrations-users":
+      return <RegistrationsPageView {...props} section="users" />;
+    case "registrations-resources":
+      return <RegistrationsPageView {...props} section="resources" />;
     default:
       return null;
   }
