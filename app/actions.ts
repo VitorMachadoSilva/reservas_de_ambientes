@@ -14,6 +14,9 @@ const appPaths = [
   "/agenda",
   "/ambientes",
   "/cadastros",
+  "/cadastros/academico",
+  "/cadastros/ambientes",
+  "/cadastros/aprovadores",
 ];
 
 function revalidateAppPaths() {
@@ -291,14 +294,53 @@ export async function createCourse(formData: FormData) {
     });
   } catch (error) {
     if (isUniqueConstraintError(error)) {
-      redirect("/cadastros?toast=curso-duplicado");
+      redirect("/cadastros/academico?toast=curso-duplicado");
     }
 
     throw error;
   }
 
   revalidateAppPaths();
-  redirect("/cadastros?toast=curso-criado");
+  redirect("/cadastros/academico?toast=curso-criado");
+}
+
+export async function updateCourse(formData: FormData) {
+  const id = requiredString(formData, "id");
+  const name = requiredString(formData, "name");
+  const code = requiredString(formData, "code").toUpperCase();
+
+  try {
+    await prisma.course.update({
+      where: { id },
+      data: { name, code },
+    });
+  } catch (error) {
+    if (isUniqueConstraintError(error)) {
+      redirect("/cadastros/academico?toast=curso-duplicado");
+    }
+
+    throw error;
+  }
+
+  revalidateAppPaths();
+  redirect("/cadastros/academico?toast=curso-atualizado");
+}
+
+export async function setCourseActive(formData: FormData) {
+  const id = requiredString(formData, "id");
+  const active = requiredString(formData, "active") === "true";
+
+  await prisma.course.update({
+    where: { id },
+    data: { active },
+  });
+
+  revalidateAppPaths();
+  redirect(
+    active
+      ? "/cadastros/academico?toast=curso-ativado"
+      : "/cadastros/academico?toast=curso-inativado",
+  );
 }
 
 export async function createDiscipline(formData: FormData) {
@@ -316,14 +358,53 @@ export async function createDiscipline(formData: FormData) {
     });
   } catch (error) {
     if (isUniqueConstraintError(error)) {
-      redirect("/cadastros?toast=disciplina-duplicada");
+      redirect("/cadastros/academico?toast=disciplina-duplicada");
     }
 
     throw error;
   }
 
   revalidateAppPaths();
-  redirect("/cadastros?toast=disciplina-criada");
+  redirect("/cadastros/academico?toast=disciplina-criada");
+}
+
+export async function updateDiscipline(formData: FormData) {
+  const id = requiredString(formData, "id");
+  const name = requiredString(formData, "name");
+  const code = requiredString(formData, "code").toUpperCase();
+
+  try {
+    await prisma.discipline.update({
+      where: { id },
+      data: { name, code },
+    });
+  } catch (error) {
+    if (isUniqueConstraintError(error)) {
+      redirect("/cadastros/academico?toast=disciplina-duplicada");
+    }
+
+    throw error;
+  }
+
+  revalidateAppPaths();
+  redirect("/cadastros/academico?toast=disciplina-atualizada");
+}
+
+export async function setDisciplineActive(formData: FormData) {
+  const id = requiredString(formData, "id");
+  const active = requiredString(formData, "active") === "true";
+
+  await prisma.discipline.update({
+    where: { id },
+    data: { active },
+  });
+
+  revalidateAppPaths();
+  redirect(
+    active
+      ? "/cadastros/academico?toast=disciplina-ativada"
+      : "/cadastros/academico?toast=disciplina-inativada",
+  );
 }
 
 export async function createClassGroup(formData: FormData) {
@@ -341,14 +422,53 @@ export async function createClassGroup(formData: FormData) {
     });
   } catch (error) {
     if (isUniqueConstraintError(error)) {
-      redirect("/cadastros?toast=turma-duplicada");
+      redirect("/cadastros/academico?toast=turma-duplicada");
     }
 
     throw error;
   }
 
   revalidateAppPaths();
-  redirect("/cadastros?toast=turma-criada");
+  redirect("/cadastros/academico?toast=turma-criada");
+}
+
+export async function updateClassGroup(formData: FormData) {
+  const id = requiredString(formData, "id");
+  const name = requiredString(formData, "name");
+  const period = requiredString(formData, "period");
+
+  try {
+    await prisma.classGroup.update({
+      where: { id },
+      data: { name, period },
+    });
+  } catch (error) {
+    if (isUniqueConstraintError(error)) {
+      redirect("/cadastros/academico?toast=turma-duplicada");
+    }
+
+    throw error;
+  }
+
+  revalidateAppPaths();
+  redirect("/cadastros/academico?toast=turma-atualizada");
+}
+
+export async function setClassGroupActive(formData: FormData) {
+  const id = requiredString(formData, "id");
+  const active = requiredString(formData, "active") === "true";
+
+  await prisma.classGroup.update({
+    where: { id },
+    data: { active },
+  });
+
+  revalidateAppPaths();
+  redirect(
+    active
+      ? "/cadastros/academico?toast=turma-ativada"
+      : "/cadastros/academico?toast=turma-inativada",
+  );
 }
 
 export async function createSpace(formData: FormData) {
@@ -362,7 +482,7 @@ export async function createSpace(formData: FormData) {
   );
 
   if (!Number.isFinite(capacity) || capacity <= 0) {
-    redirect("/cadastros?toast=capacidade-invalida");
+    redirect("/cadastros/ambientes?toast=capacidade-invalida");
   }
 
   try {
@@ -382,14 +502,79 @@ export async function createSpace(formData: FormData) {
     });
   } catch (error) {
     if (isUniqueConstraintError(error)) {
-      redirect("/cadastros?toast=ambiente-duplicado");
+      redirect("/cadastros/ambientes?toast=ambiente-duplicado");
     }
 
     throw error;
   }
 
   revalidateAppPaths();
-  redirect("/cadastros?toast=ambiente-criado");
+  redirect("/cadastros/ambientes?toast=ambiente-criado");
+}
+
+export async function updateSpace(formData: FormData) {
+  const id = requiredString(formData, "id");
+  const name = requiredString(formData, "name");
+  const type = requiredString(formData, "type");
+  const capacity = Number(requiredString(formData, "capacity"));
+  const location = requiredString(formData, "location");
+  const notes = String(formData.get("notes") ?? "").trim();
+  const resourceIds = formData.getAll("resourceIds").filter(
+    (value): value is string => typeof value === "string",
+  );
+
+  if (!Number.isFinite(capacity) || capacity <= 0) {
+    redirect("/cadastros/ambientes?toast=capacidade-invalida");
+  }
+
+  try {
+    await prisma.$transaction([
+      prisma.spaceResource.deleteMany({
+        where: { spaceId: id },
+      }),
+      prisma.space.update({
+        where: { id },
+        data: {
+          name,
+          type: type as SpaceType,
+          capacity,
+          location,
+          notes: notes || null,
+          resources: {
+            create: resourceIds.map((resourceId) => ({
+              resourceId,
+            })),
+          },
+        },
+      }),
+    ]);
+  } catch (error) {
+    if (isUniqueConstraintError(error)) {
+      redirect("/cadastros/ambientes?toast=ambiente-duplicado");
+    }
+
+    throw error;
+  }
+
+  revalidateAppPaths();
+  redirect("/cadastros/ambientes?toast=ambiente-atualizado");
+}
+
+export async function setSpaceActive(formData: FormData) {
+  const id = requiredString(formData, "id");
+  const active = requiredString(formData, "active") === "true";
+
+  await prisma.space.update({
+    where: { id },
+    data: { active },
+  });
+
+  revalidateAppPaths();
+  redirect(
+    active
+      ? "/cadastros/ambientes?toast=ambiente-ativado"
+      : "/cadastros/ambientes?toast=ambiente-inativado",
+  );
 }
 
 export async function assignCourseApprover(formData: FormData) {
@@ -401,7 +586,7 @@ export async function assignCourseApprover(formData: FormData) {
   });
 
   if (user.role !== UserRole.APROVADOR && user.role !== UserRole.ADMIN) {
-    redirect("/cadastros?toast=aprovador-invalido");
+    redirect("/cadastros/aprovadores?toast=aprovador-invalido");
   }
 
   await prisma.courseApprover.upsert({
@@ -419,7 +604,7 @@ export async function assignCourseApprover(formData: FormData) {
   });
 
   revalidateAppPaths();
-  redirect("/cadastros?toast=aprovador-vinculado");
+  redirect("/cadastros/aprovadores?toast=aprovador-vinculado");
 }
 
 export async function removeCourseApprover(formData: FormData) {
@@ -436,7 +621,7 @@ export async function removeCourseApprover(formData: FormData) {
   });
 
   revalidateAppPaths();
-  redirect("/cadastros?toast=aprovador-removido");
+  redirect("/cadastros/aprovadores?toast=aprovador-removido");
 }
 
 export async function ensureDemoUsers() {

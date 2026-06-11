@@ -829,6 +829,44 @@ textarea:focus {
   color: var(--primary-strong);
 }
 
+.compact-action {
+  min-height: 34px;
+  padding: 0 12px;
+  font-size: 12px;
+}
+
+.management-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.management-actions .primary-button,
+.management-actions .secondary-button {
+  width: auto;
+}
+
+.edit-action-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid rgba(37, 111, 92, 0.22);
+  border-radius: 8px;
+  background: #e7f3ef;
+  color: var(--primary-strong);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.edit-action-button:hover {
+  border-color: var(--primary);
+  background: #dceee8;
+}
+
 .stepper {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1294,6 +1332,38 @@ textarea:focus {
   gap: 20px;
 }
 
+.registration-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.registration-tabs a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.registration-tabs a.active,
+.registration-tabs a:hover {
+  border-color: var(--primary);
+  background: #dceee8;
+  color: var(--primary-strong);
+}
+
 .registration-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1317,6 +1387,190 @@ textarea:focus {
 
 .registration-card .primary-button {
   margin-top: 2px;
+}
+
+.maintenance-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfdfc;
+}
+
+.maintenance-toolbar > span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.academic-management-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.academic-management-column {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+}
+
+.academic-management-column h3 {
+  margin: 4px 0 0;
+  font-size: 18px;
+}
+
+.academic-management-list {
+  display: grid;
+  gap: 10px;
+}
+
+.pagination-controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: flex-end;
+  padding-top: 6px;
+}
+
+.pagination-controls span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfdfc;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.pagination-controls button {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--primary-strong);
+}
+
+.pagination-controls button:hover:not(:disabled) {
+  border-color: var(--primary);
+  background: #dceee8;
+}
+
+.academic-management-card {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfdfc;
+}
+
+.academic-management-card.inactive {
+  opacity: 0.78;
+  background: #f5f8f6;
+}
+
+.academic-management-card form,
+.academic-management-card .maintenance-edit-form {
+  display: grid;
+  gap: 10px;
+}
+
+.academic-management-header {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.space-management-list {
+  display: grid;
+  gap: 14px;
+}
+
+.space-management-card {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfdfc;
+}
+
+.space-management-card.inactive {
+  opacity: 0.78;
+  background: #f5f8f6;
+}
+
+.space-management-card form:first-child {
+  display: grid;
+  gap: 14px;
+}
+
+.maintenance-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: start;
+}
+
+.maintenance-summary h3 {
+  margin: 6px 0 0;
+}
+
+.maintenance-summary p {
+  margin: 6px 0 10px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.compact-summary p {
+  margin-bottom: 0;
+}
+
+.maintenance-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.maintenance-actions form {
+  display: inline-flex;
+}
+
+.maintenance-edit-form {
+  display: grid;
+  gap: 14px;
+  padding-top: 2px;
+}
+
+.space-management-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+}
+
+.space-management-header p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.space-active-form {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
 }
 
 .summary-grid {
@@ -1550,10 +1804,34 @@ textarea:focus {
   .dashboard-lists,
   .registration-grid,
   .summary-grid,
+  .academic-management-grid,
   .approver-form,
   .approver-course-card,
+  .space-management-header,
+  .maintenance-summary,
   .operations-grid {
     grid-template-columns: 1fr;
+  }
+
+  .space-active-form {
+    justify-content: stretch;
+  }
+
+  .space-active-form button {
+    width: 100%;
+  }
+
+  .management-actions {
+    justify-content: stretch;
+  }
+
+  .management-actions button,
+  .maintenance-actions button {
+    flex: 1;
+  }
+
+  .maintenance-actions {
+    justify-content: stretch;
   }
 
   .segmented-group {

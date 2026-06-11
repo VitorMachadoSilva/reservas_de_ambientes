@@ -59,10 +59,14 @@ export async function getReservationPageData() {
 
   const [
     courses,
+    allCourses,
     disciplines,
+    allDisciplines,
     classGroups,
+    allClassGroups,
     resources,
     spaces,
+    allSpaces,
     users,
     reservationRequests,
   ] = await Promise.all([
@@ -75,13 +79,27 @@ export async function getReservationPageData() {
       },
       orderBy: { name: "asc" },
     }),
+    prisma.course.findMany({
+      include: {
+        approvers: {
+          include: { user: true },
+        },
+      },
+      orderBy: [{ active: "desc" }, { name: "asc" }],
+    }),
     prisma.discipline.findMany({
       where: { active: true },
       orderBy: { name: "asc" },
     }),
+    prisma.discipline.findMany({
+      orderBy: [{ active: "desc" }, { name: "asc" }],
+    }),
     prisma.classGroup.findMany({
       where: { active: true },
       orderBy: { name: "asc" },
+    }),
+    prisma.classGroup.findMany({
+      orderBy: [{ active: "desc" }, { name: "asc" }],
     }),
     prisma.resource.findMany({
       orderBy: { name: "asc" },
@@ -94,6 +112,14 @@ export async function getReservationPageData() {
         },
       },
       orderBy: [{ type: "asc" }, { name: "asc" }],
+    }),
+    prisma.space.findMany({
+      include: {
+        resources: {
+          include: { resource: true },
+        },
+      },
+      orderBy: [{ active: "desc" }, { type: "asc" }, { name: "asc" }],
     }),
     prisma.user.findMany({
       where: { active: true },
@@ -119,10 +145,14 @@ export async function getReservationPageData() {
     currentRequester: serialize(docente),
     currentApprover: serialize(approver),
     courses: serialize(courses),
+    allCourses: serialize(allCourses),
     disciplines: serialize(disciplines),
+    allDisciplines: serialize(allDisciplines),
     classGroups: serialize(classGroups),
+    allClassGroups: serialize(allClassGroups),
     resources: serialize(resources),
     spaces: serialize(spaces),
+    allSpaces: serialize(allSpaces),
     users: serialize(users),
     reservationRequests: serialize(reservationRequests),
     initialDate: todayInputValue(),

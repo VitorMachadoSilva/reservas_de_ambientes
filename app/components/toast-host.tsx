@@ -126,9 +126,39 @@ const toastMessages: Record<string, ToastTemplate> = {
     description: "O curso ja pode ser usado em disciplinas, turmas e solicitacoes.",
     tone: "success",
   },
+  "curso-atualizado": {
+    title: "Curso atualizado",
+    description: "As informacoes do curso foram salvas.",
+    tone: "success",
+  },
+  "curso-inativado": {
+    title: "Curso inativado",
+    description: "Ele nao aparecera em novas solicitacoes, mas o historico foi preservado.",
+    tone: "info",
+  },
+  "curso-ativado": {
+    title: "Curso ativado",
+    description: "O curso voltou a ficar disponivel para novas solicitacoes.",
+    tone: "success",
+  },
   "disciplina-criada": {
     title: "Disciplina criada",
     description: "A disciplina ja aparece nas solicitacoes do curso selecionado.",
+    tone: "success",
+  },
+  "disciplina-atualizada": {
+    title: "Disciplina atualizada",
+    description: "As informacoes da disciplina foram salvas.",
+    tone: "success",
+  },
+  "disciplina-inativada": {
+    title: "Disciplina inativada",
+    description: "Ela nao aparecera em novas solicitacoes, mas o historico foi preservado.",
+    tone: "info",
+  },
+  "disciplina-ativada": {
+    title: "Disciplina ativada",
+    description: "A disciplina voltou a ficar disponivel para novas solicitacoes.",
     tone: "success",
   },
   "turma-criada": {
@@ -136,9 +166,39 @@ const toastMessages: Record<string, ToastTemplate> = {
     description: "A turma ja pode ser vinculada a novas solicitacoes.",
     tone: "success",
   },
+  "turma-atualizada": {
+    title: "Turma atualizada",
+    description: "As informacoes da turma foram salvas.",
+    tone: "success",
+  },
+  "turma-inativada": {
+    title: "Turma inativada",
+    description: "Ela nao aparecera em novas solicitacoes, mas o historico foi preservado.",
+    tone: "info",
+  },
+  "turma-ativada": {
+    title: "Turma ativada",
+    description: "A turma voltou a ficar disponivel para novas solicitacoes.",
+    tone: "success",
+  },
   "ambiente-criado": {
     title: "Ambiente criado",
     description: "O ambiente ja entra nas recomendacoes quando atender aos criterios.",
+    tone: "success",
+  },
+  "ambiente-atualizado": {
+    title: "Ambiente atualizado",
+    description: "As informacoes do ambiente foram salvas com sucesso.",
+    tone: "success",
+  },
+  "ambiente-inativado": {
+    title: "Ambiente inativado",
+    description: "Ele nao aparecera em novas recomendacoes, mas o historico foi preservado.",
+    tone: "info",
+  },
+  "ambiente-ativado": {
+    title: "Ambiente ativado",
+    description: "O ambiente voltou a aparecer nas recomendacoes e consultas ativas.",
     tone: "success",
   },
   "aprovador-vinculado": {
