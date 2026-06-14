@@ -78,6 +78,11 @@ export function RegistrationsPageView({
   const [approverCoursePage, setApproverCoursePage] = useState(1);
   const [userPage, setUserPage] = useState(1);
   const [resourcePage, setResourcePage] = useState(1);
+  const [academicSearch, setAcademicSearch] = useState("");
+  const [spaceSearch, setSpaceSearch] = useState("");
+  const [approverSearch, setApproverSearch] = useState("");
+  const [userSearch, setUserSearch] = useState("");
+  const [resourceSearch, setResourceSearch] = useState("");
   const [newUserRole, setNewUserRole] = useState("DOCENTE");
   const [disciplineCourseId, setDisciplineCourseId] = useState(courses[0]?.id ?? "");
   const [classGroupCourseId, setClassGroupCourseId] = useState(courses[0]?.id ?? "");
@@ -118,7 +123,18 @@ export function RegistrationsPageView({
     },
   };
   const activeAcademicSection = academicSections[activeAcademicBase];
-  const visibleAcademicItems = activeAcademicSection.items.slice(
+  const filteredAcademicItems = activeAcademicSection.items.filter((item) => {
+    const search = academicSearch.trim().toLowerCase();
+    if (!search) return true;
+
+    const secondaryValue =
+      activeAcademicBase === "classGroup"
+        ? (item as ClassGroup).period
+        : (item as Course | Discipline).code;
+
+    return `${item.name} ${secondaryValue}`.toLowerCase().includes(search);
+  });
+  const visibleAcademicItems = filteredAcademicItems.slice(
     (academicPage - 1) * pageSize,
     academicPage * pageSize,
   );
@@ -127,17 +143,42 @@ export function RegistrationsPageView({
     if (spaceStatusFilter === "inactive") return !space.active;
 
     return true;
+  }).filter((space) => {
+    const search = spaceSearch.trim().toLowerCase();
+    if (!search) return true;
+
+    return `${space.name} ${space.location} ${space.type}`.toLowerCase().includes(search);
   });
   const visibleManagedSpaces = filteredManagedSpaces.slice(
     (spacePage - 1) * pageSize,
     spacePage * pageSize,
   );
-  const visibleApproverCourses = courses.slice(
+  const filteredApproverCourses = courses.filter((course) => {
+    const search = approverSearch.trim().toLowerCase();
+    if (!search) return true;
+
+    return `${course.name} ${course.code}`.toLowerCase().includes(search);
+  });
+  const visibleApproverCourses = filteredApproverCourses.slice(
     (approverCoursePage - 1) * pageSize,
     approverCoursePage * pageSize,
   );
-  const visibleUsers = users.slice((userPage - 1) * pageSize, userPage * pageSize);
-  const visibleResources = allResources.slice(
+  const filteredUsers = users.filter((user) => {
+    const search = userSearch.trim().toLowerCase();
+    if (!search) return true;
+
+    return `${user.name} ${user.email} ${roleLabels[user.role] ?? user.role}`
+      .toLowerCase()
+      .includes(search);
+  });
+  const visibleUsers = filteredUsers.slice((userPage - 1) * pageSize, userPage * pageSize);
+  const filteredResources = allResources.filter((resource) => {
+    const search = resourceSearch.trim().toLowerCase();
+    if (!search) return true;
+
+    return resource.name.toLowerCase().includes(search);
+  });
+  const visibleResources = filteredResources.slice(
     (resourcePage - 1) * pageSize,
     resourcePage * pageSize,
   );
@@ -156,11 +197,23 @@ export function RegistrationsPageView({
 
   useEffect(() => {
     setAcademicPage(1);
-  }, [activeAcademicBase]);
+  }, [activeAcademicBase, academicSearch]);
 
   useEffect(() => {
     setSpacePage(1);
-  }, [spaceStatusFilter]);
+  }, [spaceStatusFilter, spaceSearch]);
+
+  useEffect(() => {
+    setApproverCoursePage(1);
+  }, [approverSearch]);
+
+  useEffect(() => {
+    setUserPage(1);
+  }, [userSearch]);
+
+  useEffect(() => {
+    setResourcePage(1);
+  }, [resourceSearch]);
 
   return (
     <section className="registrations-page">
@@ -301,11 +354,19 @@ export function RegistrationsPageView({
                     {label}
                   </button>
                 ))}
-              </div>
-              <span>
-                {activeAcademicSection.items.length} item(ns) em{" "}
-                {activeAcademicSection.label.toLowerCase()}
-              </span>
+        </div>
+        <input
+          className="maintenance-search"
+          type="search"
+          value={academicSearch}
+          onChange={(event) => setAcademicSearch(event.target.value)}
+          placeholder="Buscar por nome ou codigo"
+          aria-label="Buscar cadastro academico"
+        />
+        <span>
+          {filteredAcademicItems.length} item(ns) em{" "}
+          {activeAcademicSection.label.toLowerCase()}
+        </span>
             </div>
 
             <AcademicManagementColumn
@@ -318,7 +379,7 @@ export function RegistrationsPageView({
               onChange={setAcademicPage}
               page={academicPage}
               pageSize={pageSize}
-              total={activeAcademicSection.items.length}
+          total={filteredAcademicItems.length}
             />
           </section>
         </div>
@@ -413,9 +474,17 @@ export function RegistrationsPageView({
                     {label}
                   </button>
                 ))}
-              </div>
-              <span>{filteredManagedSpaces.length} ambiente(s)</span>
-            </div>
+        </div>
+        <input
+          className="maintenance-search"
+          type="search"
+          value={spaceSearch}
+          onChange={(event) => setSpaceSearch(event.target.value)}
+          placeholder="Buscar por nome, localizacao ou tipo"
+          aria-label="Buscar ambiente"
+        />
+        <span>{filteredManagedSpaces.length} ambiente(s)</span>
+      </div>
 
             <div className="space-management-list">
               {visibleManagedSpaces.map((space) => (
@@ -486,9 +555,17 @@ export function RegistrationsPageView({
           )}
 
           <div className="approver-list">
-            <div className="maintenance-toolbar">
-              <span>{courses.length} curso(s) cadastrados</span>
-            </div>
+      <div className="maintenance-toolbar">
+        <input
+          className="maintenance-search"
+          type="search"
+          value={approverSearch}
+          onChange={(event) => setApproverSearch(event.target.value)}
+          placeholder="Buscar curso"
+          aria-label="Buscar curso em aprovadores"
+        />
+        <span>{filteredApproverCourses.length} curso(s) cadastrados</span>
+      </div>
 
             {visibleApproverCourses.map((course) => (
               <article className="approver-course-card" key={course.id}>
@@ -519,7 +596,7 @@ export function RegistrationsPageView({
             onChange={setApproverCoursePage}
             page={approverCoursePage}
             pageSize={pageSize}
-            total={courses.length}
+          total={filteredApproverCourses.length}
           />
         </section>
       )}
@@ -572,9 +649,17 @@ export function RegistrationsPageView({
               <Users size={22} />
             </div>
 
-            <div className="maintenance-toolbar">
-              <span>{users.length} usuario(s) cadastrados</span>
-            </div>
+      <div className="maintenance-toolbar">
+        <input
+          className="maintenance-search"
+          type="search"
+          value={userSearch}
+          onChange={(event) => setUserSearch(event.target.value)}
+          placeholder="Buscar por nome, e-mail ou perfil"
+          aria-label="Buscar usuario"
+        />
+        <span>{filteredUsers.length} usuario(s) cadastrados</span>
+      </div>
 
             <div className="space-management-list">
               {visibleUsers.map((user) => (
@@ -586,7 +671,7 @@ export function RegistrationsPageView({
               onChange={setUserPage}
               page={userPage}
               pageSize={pageSize}
-              total={users.length}
+          total={filteredUsers.length}
             />
           </section>
         </div>
@@ -622,9 +707,17 @@ export function RegistrationsPageView({
               <Filter size={22} />
             </div>
 
-            <div className="maintenance-toolbar">
-              <span>{allResources.length} recurso(s) cadastrados</span>
-            </div>
+      <div className="maintenance-toolbar">
+        <input
+          className="maintenance-search"
+          type="search"
+          value={resourceSearch}
+          onChange={(event) => setResourceSearch(event.target.value)}
+          placeholder="Buscar recurso"
+          aria-label="Buscar recurso"
+        />
+        <span>{filteredResources.length} recurso(s) cadastrados</span>
+      </div>
 
             <div className="space-management-list">
               {visibleResources.map((resource) => (
@@ -636,7 +729,7 @@ export function RegistrationsPageView({
               onChange={setResourcePage}
               page={resourcePage}
               pageSize={pageSize}
-              total={allResources.length}
+          total={filteredResources.length}
             />
           </section>
         </div>

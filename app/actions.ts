@@ -1,5 +1,48 @@
 "use server";
 
+export async function expireStaleReservationRequests() {
+  const pendingRequests = await prisma.$queryRawUnsafe<
+    Array<{ id: string; date: string | Date; startTime: string | Date }>
+  >(
+    `SELECT "id", "date", "startTime"
+     FROM "ReservationRequest"
+     WHERE "status" IN ('PENDING', 'PENDENTE')`
+  );
+
+  const now = Date.now();
+  const expiredIds = pendingRequests
+    .filter((request) => {
+      const date =
+        request.date instanceof Date
+          ? request.date.toISOString().slice(0, 10)
+          : String(request.date).slice(0, 10);
+      const rawStartTime = request.startTime instanceof Date ? request.startTime.toISOString() : String(request.startTime);
+      const startTime = rawStartTime.includes("T")
+        ? rawStartTime.split("T")[1]?.slice(0, 5)
+        : rawStartTime.slice(0, 5);
+
+      if (!date || !startTime) return false;
+
+      return new Date(`${date}T${startTime}:00`).getTime() - now <= 60 * 60 * 1000;
+    })
+    .map((request) => request.id);
+
+  if (expiredIds.length === 0) return 0;
+
+  const ids = expiredIds.map((id) => `'${String(id).replaceAll("'", "''")}'`).join(",");
+
+  await prisma.$executeRawUnsafe(
+    `UPDATE "ReservationRequest"
+     SET "status" = 'EXPIRADA'
+     WHERE "id" IN (${ids}) AND "status" IN ('PENDING', 'PENDENTE')`
+  );
+
+  revalidatePath("/");
+  revalidatePath("/aprovacoes");
+  revalidatePath("/minhas-reservas");
+  return expiredIds.length;
+}
+
 import { Prisma, RequestStatus, SpaceType, UserRole } from "@prisma/client";
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
@@ -93,6 +136,23 @@ async function hasSpaceConflict(spaceId: string, startAt: Date, endAt: Date) {
 }
 
 export async function createReservationRequest(formData: FormData) {
+  const requestedDateForAdvanceRule = String(formData.get("date") || "");
+  const requestedStartTimeForAdvanceRule = String(formData.get("startTime") || "");
+  const userRoleForAdvanceRule = String(formData.get("userRole") || "");
+  const requestedStartForAdvanceRule = new Date(
+    `${requestedDateForAdvanceRule}T${requestedStartTimeForAdvanceRule}:00`
+  );
+
+  if (
+    userRoleForAdvanceRule !== "ADMIN" &&
+    requestedDateForAdvanceRule &&
+    requestedStartTimeForAdvanceRule &&
+    !Number.isNaN(requestedStartForAdvanceRule.getTime()) &&
+    requestedStartForAdvanceRule.getTime() - Date.now() < 24 * 60 * 60 * 1000
+  ) {
+    redirect("/nova-solicitacao?toast=antecedencia-minima");
+  }
+
   const requesterId = requiredString(formData, "requesterId");
   const courseId = requiredString(formData, "courseId");
   const disciplineId = requiredString(formData, "disciplineId");

@@ -3,6 +3,7 @@
 import { logoutUser } from "@/app/actions";
 import {
   Building2,
+  BarChart3,
   CalendarDays,
   Check,
   ChevronLeft,
@@ -42,10 +43,16 @@ export function Sidebar({ collapsed, currentUser, setCollapsed }: SidebarProps) 
       roles: ["DOCENTE"],
     },
     {
-      href: "/aprovacoes",
+    href: "/aprovacoes",
       label: "Aprovacoes",
       icon: Check,
       roles: ["APROVADOR", "ADMIN"],
+    },
+    {
+      href: "/relatorios",
+      label: "Relatorios",
+      icon: BarChart3,
+      roles: ["ADMIN", "APROVADOR"],
     },
     { href: "/agenda", label: "Agenda", icon: CalendarDays },
     { href: "/ambientes", label: "Ambientes", icon: Building2 },
