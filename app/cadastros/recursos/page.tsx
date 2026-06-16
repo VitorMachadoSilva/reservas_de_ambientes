@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { ReservationWorkspace } from "@/app/components/reservation-workspace";
 import { getReservationPageData, loginRequired } from "@/lib/reservation-data";
+import { getInitialSidebarCollapsed } from "@/lib/sidebar-state";
 
 export default async function ResourceRegistrationsPage() {
   const data = await getReservationPageData();
@@ -8,5 +9,13 @@ export default async function ResourceRegistrationsPage() {
   if (data === loginRequired) redirect("/login");
   if (!data) redirect("/setup");
 
-  return <ReservationWorkspace {...data} view="registrations-resources" />;
+  const initialSidebarCollapsed = await getInitialSidebarCollapsed();
+
+  return (
+    <ReservationWorkspace
+      {...data}
+      view="registrations-resources"
+      initialSidebarCollapsed={initialSidebarCollapsed}
+    />
+  );
 }

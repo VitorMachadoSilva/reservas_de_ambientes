@@ -69,9 +69,9 @@ export type Space = {
 
 export type ReservationRequest = {
   id: string;
-  status: "PENDENTE" | "APROVADA" | "RECUSADA" | "CANCELADA";
-  startAt: string;
-  endAt: string;
+  status: "PENDENTE" | "APROVADA" | "RECUSADA" | "CANCELADA" | "EXPIRADA";
+  startAt: string | Date;
+  endAt: string | Date;
   estimatedStudents: number;
   purpose: string;
   decisionNote: string | null;
@@ -90,6 +90,7 @@ export type ReservationRequest = {
 
 export type ReservationWorkspaceProps = {
   view: View;
+  initialSidebarCollapsed?: boolean;
   currentUser: User;
   currentRequester: User;
   currentApprover: User;

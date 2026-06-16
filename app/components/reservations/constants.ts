@@ -10,6 +10,7 @@ export const statusLabels = {
   APROVADA: "Aprovada",
   RECUSADA: "Recusada",
   CANCELADA: "Cancelada",
+  EXPIRADA: "Expirada",
 };
 
 export const roleLabels: Record<string, string> = {

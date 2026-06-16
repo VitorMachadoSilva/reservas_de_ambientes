@@ -9,6 +9,7 @@ type PendingButtonProps = {
   className?: string;
   disabled?: boolean;
   pendingLabel?: string;
+  pendingText?: string;
   title?: string;
   type?: "submit" | "button";
 };
@@ -18,6 +19,7 @@ export function PendingButton({
   className,
   disabled,
   pendingLabel = "Processando...",
+  pendingText,
   title,
   type = "submit",
 }: PendingButtonProps) {
@@ -33,7 +35,7 @@ export function PendingButton({
       {pending ? (
         <>
           <Loader2 className="spin-icon" size={17} />
-          {pendingLabel}
+          {pendingText ?? pendingLabel}
         </>
       ) : (
         children

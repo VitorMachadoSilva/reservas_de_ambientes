@@ -118,7 +118,7 @@ export function MyReservationsPageView({
 }: MyReservationsPageViewProps) {
   const allReservations = myReservations ?? requests ?? reservationRequests ?? [];
   const router = useRouter();
-  const [page, setPage] = useState(0);
+  const [page, setPage] = useState(1);
   const [cancelingId, setCancelingId] = useState("");
   const [cancelReason, setCancelReason] = useState("");
   const [currentTime, setCurrentTime] = useState(0);
@@ -138,7 +138,7 @@ export function MyReservationsPageView({
   }, [router]);
 
   useEffect(() => {
-    setPage(0);
+    setPage(1);
   }, [search, statusFilter]);
 
   const sortedReservations = useMemo(() => {
@@ -186,7 +186,7 @@ export function MyReservationsPageView({
   }, [currentTime, sortedReservations]);
 
   const expiredCount = sortedReservations.filter((request) => isExpired(request, currentTime)).length;
-  const visibleReservations = filteredReservations.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
+  const visibleReservations = filteredReservations.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
     <section className="my-reservations-page">
@@ -321,10 +321,7 @@ export function MyReservationsPageView({
         page={page}
         pageSize={PAGE_SIZE}
         total={filteredReservations.length}
-        onPrevious={() => setPage((current) => Math.max(0, current - 1))}
-        onNext={() =>
-          setPage((current) => Math.min(Math.max(0, Math.ceil(filteredReservations.length / PAGE_SIZE) - 1), current + 1))
-        }
+        onChange={setPage}
       />
     </section>
   );

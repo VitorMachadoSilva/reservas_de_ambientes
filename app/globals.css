@@ -3,16 +3,60 @@
   --surface: #ffffff;
   --surface-soft: #eef4f1;
   --surface-strong: #1f2933;
+  --field-bg: #fbfdfc;
   --text: #14211b;
   --muted: #66746d;
   --line: #dce5df;
   --primary: #256f5c;
   --primary-strong: #174c40;
+  --primary-soft: #dceee8;
+  --primary-faint: #e7f3ef;
   --accent: #b76d33;
   --danger: #b94242;
+  --danger-soft: #f8dddd;
   --warning: #bd8a22;
+  --warning-soft: #fff1d3;
+  --warning-panel: #fff8e9;
+  --warning-panel-text: #715927;
   --success: #277657;
+  --success-soft: #dff1e9;
+  --muted-soft: #e6ece8;
+  --chip-text: #3c5149;
+  --on-primary: #ffffff;
   --shadow: 0 18px 45px rgba(42, 57, 49, 0.12);
+  --ease-standard: cubic-bezier(0.22, 1, 0.36, 1);
+  --motion-fast: 160ms;
+  --motion-base: 240ms;
+  --motion-slow: 320ms;
+}
+
+[data-theme="dark"] {
+  --bg: #0f1714;
+  --surface: #16231f;
+  --surface-soft: #20322c;
+  --surface-strong: #e8f2ee;
+  --field-bg: #101b17;
+  --text: #edf7f3;
+  --muted: #9fb1aa;
+  --line: #2d433b;
+  --primary: #71c9ad;
+  --primary-strong: #b7ecdc;
+  --primary-soft: #1f3a31;
+  --primary-faint: #20322c;
+  --accent: #df9b64;
+  --danger: #f08b8b;
+  --danger-soft: #3c1d1d;
+  --warning: #e8ba63;
+  --warning-soft: #3a2b13;
+  --warning-panel: #2d2413;
+  --warning-panel-text: #e8ba63;
+  --success: #7bd2ae;
+  --success-soft: #17382d;
+  --muted-soft: #26302c;
+  --chip-text: #dceee8;
+  --on-primary: #07130f;
+  --shadow: 0 18px 45px rgba(0, 0, 0, 0.22);
+  color-scheme: dark;
 }
 
 * {
@@ -43,6 +87,148 @@ body {
   pointer-events: none;
 }
 
+.guided-tour-button {
+  position: fixed;
+  z-index: 120;
+  right: 22px;
+  bottom: 22px;
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  border: 1px solid rgba(37, 111, 92, 0.24);
+  border-radius: 999px;
+  background: var(--primary);
+  color: #ffffff;
+  box-shadow: 0 16px 38px rgba(18, 44, 38, 0.22);
+}
+
+.guided-tour-button:hover {
+  background: var(--primary-strong);
+  transform: translateY(-2px);
+}
+
+.guided-tour-button:focus-visible {
+  outline: 3px solid rgba(37, 111, 92, 0.22);
+  outline-offset: 3px;
+}
+
+.guided-tour-layer {
+  position: fixed;
+  z-index: 130;
+  inset: 0;
+  pointer-events: none;
+}
+
+.guided-tour-scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(8, 18, 14, 0.42);
+}
+
+.guided-tour-highlight {
+  position: fixed;
+  z-index: 131;
+  border: 2px solid var(--primary);
+  border-radius: 10px;
+  box-shadow:
+    0 0 0 9999px rgba(8, 18, 14, 0.42),
+    0 0 0 6px rgba(113, 201, 173, 0.16);
+  pointer-events: none;
+  transition:
+    height var(--motion-base) var(--ease-standard),
+    left var(--motion-base) var(--ease-standard),
+    top var(--motion-base) var(--ease-standard),
+    width var(--motion-base) var(--ease-standard);
+}
+
+.guided-tour-popover {
+  position: fixed;
+  z-index: 132;
+  display: grid;
+  gap: 12px;
+  width: min(320px, calc(100vw - 32px));
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 22px 58px rgba(8, 18, 14, 0.24);
+  pointer-events: auto;
+  animation: menu-in var(--motion-base) var(--ease-standard);
+}
+
+.guided-tour-header,
+.guided-tour-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.guided-tour-header span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.guided-tour-header button {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+}
+
+.guided-tour-header button:hover {
+  border-color: var(--line);
+  background: var(--surface-soft);
+  color: var(--text);
+}
+
+.guided-tour-popover h2 {
+  font-size: 18px;
+}
+
+.guided-tour-popover p {
+  margin-bottom: 2px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.guided-tour-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--primary-strong);
+  font-weight: 850;
+}
+
+.guided-tour-actions button.primary-action {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: #ffffff;
+}
+
+.guided-tour-actions button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.guided-tour-actions button:disabled {
+  opacity: 0.48;
+}
+
 .toast-card {
   display: grid;
   grid-template-columns: 38px minmax(0, 1fr) 32px;
@@ -51,10 +237,10 @@ body {
   padding: 14px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--surface);
   box-shadow: 0 18px 45px rgba(42, 57, 49, 0.18);
   pointer-events: auto;
-  animation: toast-in 180ms ease-out;
+  animation: toast-in var(--motion-base) var(--ease-standard);
 }
 
 .toast-card.success {
@@ -75,17 +261,17 @@ body {
   height: 38px;
   place-items: center;
   border-radius: 8px;
-  background: #dff1e9;
+  background: var(--success-soft);
   color: var(--success);
 }
 
 .toast-card.info .toast-icon {
-  background: #e7f3ef;
+  background: var(--primary-faint);
   color: var(--primary-strong);
 }
 
 .toast-card.error .toast-icon {
-  background: #f8dddd;
+  background: var(--danger-soft);
   color: var(--danger);
 }
 
@@ -135,6 +321,20 @@ textarea {
   font: inherit;
 }
 
+button,
+a,
+input,
+select,
+textarea {
+  transition:
+    background-color var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard),
+    opacity var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard);
+}
+
 .custom-select {
   position: relative;
   display: grid;
@@ -158,7 +358,7 @@ textarea {
   padding: 0 12px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: #fbfdfc;
+  background: var(--field-bg);
   color: var(--text);
 }
 
@@ -192,8 +392,9 @@ textarea {
   padding: 6px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--surface);
   box-shadow: 0 14px 32px rgba(42, 57, 49, 0.16);
+  animation: menu-in var(--motion-base) var(--ease-standard);
 }
 
 .custom-select-option {
@@ -209,7 +410,7 @@ textarea {
 
 .custom-select-option:hover,
 .custom-select-option.selected {
-  background: #dceee8;
+  background: var(--primary-soft);
   color: var(--primary-strong);
 }
 
@@ -226,6 +427,17 @@ button:disabled {
   animation: spin 800ms linear infinite;
 }
 
+@keyframes menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);
@@ -236,6 +448,7 @@ button:disabled {
   display: grid;
   grid-template-columns: 280px minmax(0, 1fr);
   min-height: 100vh;
+  transition: grid-template-columns var(--motion-slow) var(--ease-standard);
 }
 
 .app-shell.sidebar-collapsed {
@@ -249,7 +462,7 @@ button:disabled {
   padding: 24px;
   background: #20362f;
   color: #f8fbf9;
-  transition: width 180ms ease;
+  transition: padding var(--motion-slow) var(--ease-standard);
 }
 
 .sidebar.collapsed {
@@ -279,9 +492,13 @@ button:disabled {
   gap: 12px;
   padding-bottom: 28px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+  transition:
+    gap var(--motion-base) var(--ease-standard),
+    padding var(--motion-base) var(--ease-standard);
 }
 
 .sidebar.collapsed .brand {
+  gap: 0;
   justify-content: center;
 }
 
@@ -291,7 +508,7 @@ button:disabled {
   height: 44px;
   place-items: center;
   border-radius: 8px;
-  background: #e8f3ef;
+  background: var(--primary-faint);
   color: var(--primary-strong);
 }
 
@@ -300,10 +517,22 @@ button:disabled {
   display: block;
 }
 
+.brand-copy,
+.nav-item span {
+  max-width: 180px;
+  overflow: hidden;
+  opacity: 1;
+  white-space: nowrap;
+  transition:
+    max-width var(--motion-base) var(--ease-standard),
+    opacity var(--motion-fast) var(--ease-standard);
+}
+
 .sidebar.collapsed .brand-copy,
-.sidebar.collapsed .nav-item span,
-.sidebar.collapsed .sidebar-toggle span {
-  display: none;
+.sidebar.collapsed .nav-item span {
+  max-width: 0;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .brand strong {
@@ -328,9 +557,16 @@ button:disabled {
   border-radius: 8px;
   color: #d8e3de;
   text-decoration: none;
+  transition:
+    background-color var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard),
+    gap var(--motion-base) var(--ease-standard),
+    padding var(--motion-base) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard);
 }
 
 .sidebar.collapsed .nav-item {
+  gap: 0;
   justify-content: center;
   padding: 0;
 }
@@ -339,6 +575,14 @@ button:disabled {
 .nav-item:hover {
   background: rgba(255, 255, 255, 0.12);
   color: #ffffff;
+}
+
+.nav-item:hover {
+  transform: translateX(2px);
+}
+
+.sidebar.collapsed .nav-item:hover {
+  transform: none;
 }
 
 .logout-form {
@@ -353,19 +597,57 @@ button:disabled {
 
 .sidebar-toggle {
   justify-content: center;
-  gap: 8px;
-  width: 100%;
+  width: 40px;
+  height: 40px;
+  padding: 0;
   min-height: 40px;
   margin-top: 18px;
+  margin-right: auto;
   border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.08);
   color: #f8fbf9;
-  font-weight: 800;
+  transition:
+    background-color var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard);
 }
 
 .sidebar-toggle:hover {
   background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.26);
+  transform: translateY(-1px);
+}
+
+.sidebar-toggle:focus-visible {
+  outline: 3px solid rgba(232, 243, 239, 0.34);
+  outline-offset: 2px;
+}
+
+.sidebar-toggle svg {
+  flex: 0 0 auto;
+}
+
+.metric,
+.today-item,
+.compact-day-item,
+.quick-action,
+.request-panel,
+.recommendation-panel,
+.approval-panel,
+.calendar-panel,
+.today-panel,
+.context-panel,
+.environment-strip,
+.space-card,
+.request-card,
+.timeline-item,
+.environment-grid article,
+.toast-card {
+  transition:
+    border-color var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-base) var(--ease-standard),
+    transform var(--motion-base) var(--ease-standard);
 }
 
 .content {
@@ -417,6 +699,58 @@ h3 {
   display: grid;
   grid-template-columns: repeat(2, minmax(170px, 1fr));
   gap: 10px;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.theme-toggle {
+  display: grid;
+  width: 42px;
+  min-width: 42px;
+  min-height: 100%;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--primary);
+  box-shadow: var(--shadow);
+}
+
+.theme-toggle:hover {
+  border-color: var(--primary);
+  background: var(--surface-soft);
+  transform: translateY(-1px);
+}
+
+.theme-toggle:focus-visible {
+  outline: 3px solid rgba(37, 111, 92, 0.18);
+  outline-offset: 2px;
+}
+
+.theme-icon {
+  grid-area: 1 / 1;
+  transition:
+    opacity var(--motion-fast) var(--ease-standard),
+    transform var(--motion-base) var(--ease-standard);
+}
+
+.theme-icon-dark {
+  opacity: 0;
+  transform: rotate(-45deg) scale(0.72);
+}
+
+[data-theme="dark"] .theme-icon-light {
+  opacity: 0;
+  transform: rotate(45deg) scale(0.72);
+}
+
+[data-theme="dark"] .theme-icon-dark {
+  opacity: 1;
+  transform: rotate(0) scale(1);
 }
 
 .profile-cluster div {
@@ -512,7 +846,7 @@ h3 {
   padding: 0 12px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: #fbfdfc;
+  background: var(--field-bg);
   color: var(--muted);
   font-weight: 800;
 }
@@ -520,7 +854,7 @@ h3 {
 .segmented-group button.active,
 .segmented-group button:hover {
   border-color: var(--primary);
-  background: #dceee8;
+  background: var(--primary-soft);
   color: var(--primary-strong);
 }
 
@@ -549,7 +883,7 @@ h3 {
   padding: 14px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: #fbfdfc;
+  background: var(--field-bg);
 }
 
 .today-time {
@@ -577,7 +911,7 @@ h3 {
   padding: 14px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: #fbfdfc;
+  background: var(--field-bg);
 }
 
 .compact-day-item p {
@@ -620,7 +954,7 @@ h3 {
   padding: 12px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: #fbfdfc;
+  background: var(--field-bg);
   color: var(--text);
   text-decoration: none;
 }
@@ -632,7 +966,7 @@ h3 {
 
 .quick-action.primary {
   border-color: rgba(37, 111, 92, 0.28);
-  background: #e7f3ef;
+  background: var(--primary-faint);
 }
 
 .quick-action:hover {
@@ -644,7 +978,7 @@ h3 {
   padding: 14px;
   border: 1px solid #f0d9ab;
   border-radius: 8px;
-  background: #fff8e9;
+  background: var(--warning-panel);
 }
 
 .alert-box strong {
@@ -656,7 +990,7 @@ h3 {
 
 .alert-box p {
   margin: 6px 0 0;
-  color: #715927;
+  color: var(--warning-panel-text);
   font-size: 13px;
 }
 
@@ -715,7 +1049,7 @@ textarea {
   width: 100%;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: #fbfdfc;
+  background: var(--field-bg);
   color: var(--text);
   outline: none;
 }
@@ -768,10 +1102,13 @@ textarea:focus {
 .status-pill {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   min-height: 28px;
   border-radius: 999px;
   font-size: 12px;
   font-weight: 800;
+  line-height: 1;
+  text-align: center;
 }
 
 .chip span {
@@ -783,7 +1120,7 @@ textarea:focus {
 
 .chip input:checked + span {
   border-color: var(--primary);
-  background: #dceee8;
+  background: var(--primary-soft);
   color: var(--primary-strong);
 }
 
@@ -792,7 +1129,7 @@ textarea:focus {
   padding: 12px;
   border: 1px dashed var(--primary);
   border-radius: 8px;
-  background: #f0f8f5;
+  background: var(--primary-faint);
 }
 
 .selected-space strong {
@@ -825,7 +1162,7 @@ textarea:focus {
 .secondary-button {
   padding: 0 14px;
   border: 1px solid var(--line);
-  background: #ffffff;
+  background: var(--surface);
   color: var(--primary-strong);
 }
 
@@ -856,7 +1193,7 @@ textarea:focus {
   padding: 0 12px;
   border: 1px solid rgba(37, 111, 92, 0.22);
   border-radius: 8px;
-  background: #e7f3ef;
+  background: var(--primary-faint);
   color: var(--primary-strong);
   font-size: 12px;
   font-weight: 900;
@@ -864,7 +1201,7 @@ textarea:focus {
 
 .edit-action-button:hover {
   border-color: var(--primary);
-  background: #dceee8;
+  background: var(--primary-soft);
 }
 
 .stepper {
@@ -883,7 +1220,7 @@ textarea:focus {
   padding: 8px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: #fbfdfc;
+  background: var(--field-bg);
   color: var(--muted);
   text-align: left;
 }
@@ -908,7 +1245,7 @@ textarea:focus {
 
 .step-button.active {
   border-color: var(--primary);
-  background: #e7f3ef;
+  background: var(--primary-faint);
   color: var(--primary-strong);
 }
 
@@ -942,7 +1279,7 @@ textarea:focus {
   padding: 12px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: #fbfdfc;
+  background: var(--field-bg);
 }
 
 .review-panel span {
@@ -980,7 +1317,7 @@ textarea:focus {
 .environment-grid article {
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: #fbfdfc;
+  background: var(--field-bg);
 }
 
 .space-card {
@@ -1001,7 +1338,7 @@ textarea:focus {
 .ghost-button {
   padding: 0 12px;
   border: 1px solid var(--line);
-  background: #ffffff;
+  background: var(--surface);
   color: var(--primary-strong);
 }
 
@@ -1020,23 +1357,33 @@ textarea:focus {
 }
 
 .tag-row span {
-  padding: 0 9px;
-  background: #eef4f1;
-  color: #3c5149;
+  padding: 0 10px;
+  background: var(--surface-soft);
+  color: var(--chip-text);
 }
 
 .status-pill {
   width: fit-content;
   min-height: 24px;
   margin-bottom: 6px;
-  padding: 0 8px;
+  padding: 0 10px;
+}
+
+.environment-card .status-pill {
+  display: inline-grid;
+  width: 132px;
+  height: 28px;
+  min-height: 28px;
+  place-items: center;
+  padding: 0 12px;
+  white-space: nowrap;
 }
 
 .status-pill.compativel,
 .status-pill.aprovada,
 .status-pill.programada,
 .timeline-dot.aprovada {
-  background: #dff1e9;
+  background: var(--success-soft);
   color: var(--success);
 }
 
@@ -1044,44 +1391,44 @@ textarea:focus {
 .status-pill.pendente,
 .status-pill.pendente-agora,
 .timeline-dot.pendente {
-  background: #fff1d3;
+  background: var(--warning-soft);
   color: var(--warning);
 }
 
 .status-pill.indisponivel,
 .status-pill.recusada,
 .timeline-dot.recusada {
-  background: #f8dddd;
+  background: var(--danger-soft);
   color: var(--danger);
 }
 
 .status-pill.em-andamento {
-  background: #dceee8;
+  background: var(--primary-soft);
   color: var(--primary-strong);
 }
 
 .status-pill.livre {
-  background: #e7f3ef;
+  background: var(--primary-faint);
   color: var(--primary-strong);
 }
 
 .status-pill.finalizada,
 .status-pill.cancelada {
-  background: #e6ece8;
+  background: var(--muted-soft);
   color: #617169;
 }
 
 .today-item.em-andamento,
 .compact-day-item.em-andamento {
   border-color: rgba(37, 111, 92, 0.45);
-  background: #f2faf7;
+  background: var(--success-soft);
   box-shadow: inset 4px 0 0 var(--primary);
 }
 
 .today-item.pendente-agora,
 .compact-day-item.pendente-agora {
   border-color: rgba(189, 138, 34, 0.48);
-  background: #fffaf0;
+  background: var(--warning-panel);
   box-shadow: inset 4px 0 0 var(--warning);
 }
 
@@ -1136,7 +1483,7 @@ textarea:focus {
   padding: 6px 8px;
   border-radius: 999px;
   background: var(--surface-soft);
-  color: #3c5149;
+  color: var(--chip-text);
   font-size: 12px;
   font-weight: 800;
 }
@@ -1174,7 +1521,7 @@ textarea:focus {
 .timeline-item.em-andamento,
 .timeline-item.pendente-agora {
   border-color: var(--primary);
-  background: #f2faf7;
+  background: var(--success-soft);
 }
 
 .timeline-dot {
@@ -1225,7 +1572,7 @@ textarea:focus {
 .environment-card.em-andamento,
 .environment-card.pendente-agora {
   border-color: var(--primary);
-  background: #f2faf7;
+  background: var(--success-soft);
 }
 
 .environment-next {
@@ -1256,7 +1603,7 @@ textarea:focus {
   padding: 14px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: #fbfdfc;
+  background: var(--field-bg);
 }
 
 .reservation-table {
@@ -1271,7 +1618,7 @@ textarea:focus {
   padding: 14px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: #fbfdfc;
+  background: var(--field-bg);
 }
 
 .reservation-row p {
@@ -1360,7 +1707,7 @@ textarea:focus {
 .registration-tabs a.active,
 .registration-tabs a:hover {
   border-color: var(--primary);
-  background: #dceee8;
+  background: var(--primary-soft);
   color: var(--primary-strong);
 }
 
@@ -1398,7 +1745,7 @@ textarea:focus {
   padding: 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: #fbfdfc;
+  background: var(--field-bg);
 }
 
 .maintenance-toolbar > span {
@@ -1444,7 +1791,7 @@ textarea:focus {
   padding: 0 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: #fbfdfc;
+  background: var(--field-bg);
   color: var(--muted);
   font-size: 12px;
   font-weight: 900;
@@ -1457,13 +1804,13 @@ textarea:focus {
   place-items: center;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--surface);
   color: var(--primary-strong);
 }
 
 .pagination-controls button:hover:not(:disabled) {
   border-color: var(--primary);
-  background: #dceee8;
+  background: var(--primary-soft);
 }
 
 .academic-management-card {
@@ -1472,12 +1819,12 @@ textarea:focus {
   padding: 12px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: #fbfdfc;
+  background: var(--field-bg);
 }
 
 .academic-management-card.inactive {
   opacity: 0.78;
-  background: #f5f8f6;
+  background: var(--surface-soft);
 }
 
 .academic-management-card form,
@@ -1502,12 +1849,12 @@ textarea:focus {
   padding: 14px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: #fbfdfc;
+  background: var(--field-bg);
 }
 
 .space-management-card.inactive {
   opacity: 0.78;
-  background: #f5f8f6;
+  background: var(--surface-soft);
 }
 
 .space-management-card form:first-child {
@@ -1590,7 +1937,7 @@ textarea:focus {
   padding: 14px;
   border: 1px solid #f0d9ab;
   border-radius: 8px;
-  background: #fff8e9;
+  background: var(--warning-panel);
 }
 
 .warning-panel > span {
@@ -1603,7 +1950,7 @@ textarea:focus {
 
 .warning-panel p {
   margin: 6px 0 12px;
-  color: #715927;
+  color: var(--warning-panel-text);
   font-size: 14px;
 }
 
@@ -1620,7 +1967,7 @@ textarea:focus {
   padding: 12px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: #fbfdfc;
+  background: var(--field-bg);
 }
 
 .approver-course-card span {
@@ -1650,7 +1997,7 @@ textarea:focus {
   padding: 0 10px;
   border: 1px solid var(--line);
   border-radius: 999px;
-  background: #eef4f1;
+  background: var(--surface-soft);
   color: var(--primary-strong);
   font-size: 12px;
   font-weight: 900;
@@ -1740,14 +2087,14 @@ textarea:focus {
   padding: 14px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: #fbfdfc;
+  background: var(--field-bg);
 }
 
 .login-user-card span {
   width: fit-content;
   padding: 5px 8px;
   border-radius: 999px;
-  background: #dceee8;
+  background: var(--primary-soft);
   color: var(--primary-strong);
   font-size: 12px;
   font-weight: 900;
@@ -1883,7 +2230,7 @@ textarea:focus {
 
 .approval-summary {
   align-items: center;
-  background: #fff7ed;
+  background: var(--warning-panel);
   border: 1px solid rgba(194, 100, 25, 0.22);
   border-radius: 8px;
   color: #7c3f12;
@@ -1948,7 +2295,7 @@ textarea:focus {
 }
 
 .approval-status-tabs button.active {
-  background: #e7f3ef;
+  background: var(--primary-faint);
   border-color: rgba(28, 119, 101, 0.28);
   color: #0f4c43;
 }
@@ -1961,7 +2308,7 @@ textarea:focus {
 
 .filter-field {
   align-items: center;
-  background: #ffffff;
+  background: var(--surface);
   border: 1px solid rgba(15, 76, 67, 0.14);
   border-radius: 8px;
   color: rgba(15, 76, 67, 0.72);
@@ -2019,7 +2366,7 @@ textarea:focus {
 }
 
 .approval-request-card {
-  background: #ffffff;
+  background: var(--surface);
   border: 1px solid rgba(15, 76, 67, 0.12);
   border-radius: 8px;
   color: inherit;
@@ -2065,7 +2412,7 @@ textarea:focus {
 
 .approval-deadline-chip {
   align-items: center;
-  background: #fff7ed;
+  background: var(--warning-panel);
   border: 1px solid rgba(194, 100, 25, 0.2);
   border-radius: 999px;
   color: #8a460f;
@@ -2079,7 +2426,7 @@ textarea:focus {
 }
 
 .approval-deadline-chip.expired {
-  background: #fff5f5;
+  background: var(--danger-soft);
   border-color: rgba(185, 28, 28, 0.22);
   color: #991b1b;
 }
@@ -2113,7 +2460,7 @@ textarea:focus {
 
 .approval-deadline-banner {
   align-items: center;
-  background: #fff7ed;
+  background: var(--warning-panel);
   border: 1px solid rgba(194, 100, 25, 0.22);
   border-radius: 8px;
   color: #8a460f;
@@ -2124,7 +2471,7 @@ textarea:focus {
 }
 
 .approval-deadline-banner.expired {
-  background: #fff5f5;
+  background: var(--danger-soft);
   border-color: rgba(185, 28, 28, 0.22);
   color: #991b1b;
 }
@@ -2153,7 +2500,7 @@ textarea:focus {
 }
 
 .detail-grid div {
-  background: #f7fbf9;
+  background: var(--field-bg);
   border: 1px solid rgba(15, 76, 67, 0.09);
   border-radius: 8px;
   display: grid;
@@ -2180,7 +2527,7 @@ textarea:focus {
 }
 
 .approval-note-box {
-  background: #f7fbf9;
+  background: var(--field-bg);
   border: 1px solid rgba(15, 76, 67, 0.09);
   border-radius: 8px;
   margin-top: 12px;
@@ -2188,7 +2535,7 @@ textarea:focus {
 }
 
 .approval-note-box.muted {
-  background: #eef7f3;
+  background: var(--primary-faint);
   border-color: rgba(28, 119, 101, 0.18);
 }
 
@@ -2201,7 +2548,7 @@ textarea:focus {
 }
 
 .approval-history {
-  background: #ffffff;
+  background: var(--surface);
   border: 1px solid rgba(15, 76, 67, 0.1);
   border-radius: 8px;
   display: grid;
@@ -2310,7 +2657,7 @@ textarea:focus {
 }
 
 .approval-action-form textarea {
-  background: #ffffff;
+  background: var(--surface);
   border: 1px solid rgba(15, 76, 67, 0.16);
   border-radius: 8px;
   color: #0a1f1b;
@@ -2347,7 +2694,7 @@ textarea:focus {
 }
 
 .approval-action-form .danger-action {
-  background: #fff5f5;
+  background: var(--danger-soft);
   border: 1px solid rgba(185, 28, 28, 0.3);
   color: #991b1b;
 }
@@ -2372,7 +2719,7 @@ textarea:focus {
 }
 
 .maintenance-search {
-  background: #ffffff;
+  background: var(--surface);
   border: 1px solid rgba(15, 76, 67, 0.18);
   border-radius: 8px;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.65);
@@ -2401,7 +2748,7 @@ textarea:focus {
 }
 
 .standalone-page-shell {
-  background: #eef4f1;
+  background: var(--surface-soft);
   min-height: 100vh;
   padding: 24px;
 }
@@ -2415,7 +2762,7 @@ textarea:focus {
 
 .standalone-back-link {
   align-items: center;
-  background: #ffffff;
+  background: var(--surface);
   border: 1px solid rgba(15, 76, 67, 0.14);
   border-radius: 8px;
   color: #0f4c43;
@@ -2440,7 +2787,7 @@ textarea:focus {
 }
 
 .report-period-select select {
-  background: #ffffff;
+  background: var(--surface);
   border: 1px solid rgba(15, 76, 67, 0.16);
   border-radius: 8px;
   color: #0a1f1b;
@@ -2548,7 +2895,7 @@ textarea:focus {
 }
 
 .status-bar-track {
-  background: #eef4f1;
+  background: var(--surface-soft);
   border-radius: 999px;
   height: 10px;
   overflow: hidden;
@@ -2591,7 +2938,7 @@ textarea:focus {
 
 .ranking-item > span {
   align-items: center;
-  background: #e7f3ef;
+  background: var(--primary-faint);
   border-radius: 999px;
   color: #0f4c43;
   display: inline-flex;
@@ -2610,7 +2957,7 @@ textarea:focus {
 }
 
 .ranking-item div div {
-  background: #eef4f1;
+  background: var(--surface-soft);
   border-radius: 999px;
   height: 8px;
   overflow: hidden;
@@ -2706,7 +3053,7 @@ textarea:focus {
 
 .step-tabs button {
   align-items: center;
-  background: #ffffff;
+  background: var(--surface);
   border: 1px solid rgba(15, 76, 67, 0.13);
   border-radius: 8px;
   color: rgba(10, 31, 27, 0.62);
@@ -2721,7 +3068,7 @@ textarea:focus {
 
 .step-tabs button span {
   align-items: center;
-  background: #eef7f3;
+  background: var(--primary-faint);
   border-radius: 999px;
   display: inline-flex;
   height: 22px;
@@ -2730,7 +3077,7 @@ textarea:focus {
 }
 
 .step-tabs button.active {
-  background: #e7f3ef;
+  background: var(--primary-faint);
   border-color: rgba(28, 119, 101, 0.45);
   color: #0f4c43;
 }
@@ -2756,7 +3103,7 @@ textarea:focus {
 .full-field textarea,
 .date-time-card input,
 .date-time-card select {
-  background: #ffffff;
+  background: var(--surface);
   border: 1px solid rgba(15, 76, 67, 0.16);
   border-radius: 8px;
   color: #0a1f1b;
@@ -2783,7 +3130,7 @@ textarea:focus {
 }
 
 .time-planner {
-  background: #f7fbf9;
+  background: var(--field-bg);
   border: 1px solid rgba(15, 76, 67, 0.12);
   border-radius: 8px;
   display: grid;
@@ -2850,7 +3197,7 @@ textarea:focus {
 
 .date-time-card {
   align-items: stretch;
-  background: #ffffff;
+  background: var(--surface);
   border: 1px solid rgba(15, 76, 67, 0.09);
   border-radius: 8px;
   padding: 10px;
@@ -2858,7 +3205,7 @@ textarea:focus {
 
 .minimum-advance-card {
   align-items: center;
-  background: #eef7f3;
+  background: var(--primary-faint);
   border: 1px solid rgba(28, 119, 101, 0.16);
   border-radius: 8px;
   color: #0f4c43;
@@ -2903,24 +3250,24 @@ textarea:focus {
 }
 
 .slot-chip.free {
-  background: #e8f6f0;
+  background: var(--success-soft);
   color: #0f4c43;
 }
 
 .slot-chip.pending {
-  background: #fff7ed;
+  background: var(--warning-panel);
   color: #8a460f;
 }
 
 .slot-chip.approved {
-  background: #fee2e2;
+  background: var(--danger-soft);
   color: #991b1b;
   cursor: not-allowed;
   opacity: 0.72;
 }
 
 .slot-chip.locked {
-  background: #f1f5f9;
+  background: var(--muted-soft);
   color: #475569;
   cursor: not-allowed;
   opacity: 0.72;
@@ -2934,7 +3281,7 @@ textarea:focus {
 .inline-warning,
 .expired-notice {
   align-items: center;
-  background: #fff7ed;
+  background: var(--warning-panel);
   border: 1px solid rgba(194, 100, 25, 0.22);
   border-radius: 8px;
   color: #7c3f12;
@@ -2950,7 +3297,7 @@ textarea:focus {
 
 .inline-warning.danger,
 .expired-notice {
-  background: #fff5f5;
+  background: var(--danger-soft);
   border-color: rgba(185, 28, 28, 0.22);
   color: #991b1b;
 }
@@ -2973,7 +3320,7 @@ textarea:focus {
 }
 
 .resource-picker button {
-  background: #ffffff;
+  background: var(--surface);
   border: 1px solid rgba(15, 76, 67, 0.14);
   border-radius: 999px;
   color: #0a1f1b;
@@ -2985,7 +3332,7 @@ textarea:focus {
 }
 
 .resource-picker button.active {
-  background: #e7f3ef;
+  background: var(--primary-faint);
   border-color: rgba(28, 119, 101, 0.42);
   color: #0f4c43;
 }
@@ -2998,7 +3345,7 @@ textarea:focus {
 
 .space-choice-card {
   align-items: center;
-  background: #ffffff;
+  background: var(--surface);
   border: 1px solid rgba(15, 76, 67, 0.12);
   border-radius: 8px;
   display: grid;
@@ -3008,7 +3355,7 @@ textarea:focus {
 }
 
 .space-choice-card.selected {
-  background: #f0fbf6;
+  background: var(--success-soft);
   border-color: rgba(28, 119, 101, 0.46);
   box-shadow: 0 0 0 3px rgba(28, 119, 101, 0.09);
 }
@@ -3064,7 +3411,7 @@ textarea:focus {
 }
 
 .space-choice-card button {
-  background: #ffffff;
+  background: var(--surface);
   border: 1px solid rgba(15, 76, 67, 0.18);
   color: #0f4c43;
 }
@@ -3089,7 +3436,7 @@ textarea:focus {
 }
 
 .wizard-actions button:first-child {
-  background: #ffffff;
+  background: var(--surface);
   border: 1px solid rgba(15, 76, 67, 0.14);
   color: #0f4c43;
 }
@@ -3114,7 +3461,7 @@ textarea:focus {
 
 .selected-space-summary {
   align-items: center;
-  background: #f0fbf6;
+  background: var(--success-soft);
   border: 1px solid rgba(28, 119, 101, 0.22);
   border-radius: 8px;
   display: grid;
@@ -3125,14 +3472,14 @@ textarea:focus {
 }
 
 .selected-space-summary button {
-  background: #ffffff;
+  background: var(--surface);
   border: 1px solid rgba(15, 76, 67, 0.16);
   color: #0f4c43;
 }
 
 .review-box {
   align-items: start;
-  background: #f7fbf9;
+  background: var(--field-bg);
   border: 1px solid rgba(15, 76, 67, 0.12);
   border-radius: 8px;
   display: flex;
@@ -3173,7 +3520,7 @@ textarea:focus {
 }
 
 .my-reservations-toolbar input {
-  background: #ffffff;
+  background: var(--surface);
   border: 1px solid rgba(15, 76, 67, 0.16);
   border-radius: 8px;
   color: #0a1f1b;
@@ -3230,7 +3577,7 @@ textarea:focus {
 }
 
 .my-reservations-status-tabs button.active {
-  background: #e7f3ef;
+  background: var(--primary-faint);
   border-color: rgba(28, 119, 101, 0.28);
   color: #0f4c43;
 }
@@ -3276,7 +3623,7 @@ textarea:focus {
 }
 
 .reservation-note {
-  background: #f1f5f9;
+  background: var(--muted-soft);
   border: 1px solid rgba(100, 116, 139, 0.18);
   border-radius: 8px;
   color: #475569;
@@ -3286,19 +3633,19 @@ textarea:focus {
 }
 
 .reservation-note.success {
-  background: #e8f6f0;
+  background: var(--success-soft);
   border-color: rgba(28, 119, 101, 0.2);
   color: #0f4c43;
 }
 
 .reservation-note.warning {
-  background: #fff7ed;
+  background: var(--warning-panel);
   border-color: rgba(194, 100, 25, 0.2);
   color: #8a460f;
 }
 
 .reservation-note.danger {
-  background: #fff5f5;
+  background: var(--danger-soft);
   border-color: rgba(185, 28, 28, 0.2);
   color: #991b1b;
 }
@@ -3325,13 +3672,13 @@ textarea:focus {
 
 .soft-danger-button,
 .reservation-cancel-area form button:first-child {
-  background: #ffffff;
+  background: var(--surface);
   border: 1px solid rgba(185, 28, 28, 0.24);
   color: #991b1b;
 }
 
 .reservation-cancel-area .danger-action {
-  background: #fff5f5;
+  background: var(--danger-soft);
   border: 1px solid rgba(185, 28, 28, 0.3);
   color: #991b1b;
 }
@@ -3348,6 +3695,35 @@ textarea:focus {
 }
 
 @media (max-width: 760px) {
+  .guided-tour-button {
+    right: 16px;
+    bottom: 16px;
+  }
+
+  .guided-tour-popover {
+    left: 16px !important;
+    right: 16px !important;
+    width: auto;
+  }
+
+  .guided-tour-highlight {
+    border-radius: 8px;
+  }
+
+  .topbar,
+  .topbar-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .theme-toggle {
+    min-height: 42px;
+  }
+
+  .profile-cluster {
+    grid-template-columns: 1fr;
+  }
+
   .step-tabs,
   .form-grid {
     grid-template-columns: 1fr;
@@ -3364,5 +3740,391 @@ textarea:focus {
 
   .my-reservations-status-tabs {
     justify-content: flex-start;
+  }
+}
+
+[data-theme="dark"] .sidebar {
+  background: var(--surface);
+}
+
+[data-theme="dark"] .brand-icon {
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+[data-theme="dark"] .brand span,
+[data-theme="dark"] .nav-item {
+  color: var(--chip-text);
+}
+
+[data-theme="dark"] .nav-item.active,
+[data-theme="dark"] .nav-item:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text);
+}
+
+[data-theme="dark"] :is(.segmented-group button, .step-tabs button, .secondary-button, .edit-action-button) {
+  border-color: var(--line);
+  background: var(--field-bg);
+  color: var(--muted);
+}
+
+[data-theme="dark"] :is(
+  .segmented-group button.active,
+  .segmented-group button:hover,
+  .step-tabs button.active,
+  .my-reservations-status-tabs button.active,
+  .quick-action.primary,
+  .selected-space,
+  .space-card.selected
+) {
+  border-color: rgba(113, 201, 173, 0.46);
+  background: var(--primary-soft);
+  color: var(--primary-strong);
+}
+
+[data-theme="dark"] :is(
+  .form-grid label,
+  .full-field,
+  .date-time-card label,
+  .resource-picker > span
+) {
+  color: var(--chip-text);
+}
+
+[data-theme="dark"] .step-tabs button {
+  color: var(--chip-text);
+}
+
+[data-theme="dark"] .step-tabs button span {
+  background: var(--muted-soft);
+  color: var(--text);
+}
+
+[data-theme="dark"] .step-tabs button.active span {
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+[data-theme="dark"] .my-reservations-status-tabs button {
+  color: var(--chip-text);
+}
+
+[data-theme="dark"] .my-reservations-status-tabs button span {
+  background: var(--muted-soft);
+  color: var(--text);
+}
+
+[data-theme="dark"] .my-reservations-status-tabs button.active {
+  color: var(--primary-strong);
+}
+
+[data-theme="dark"] .my-reservations-status-tabs button.active span {
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+[data-theme="dark"] .time-legend span,
+[data-theme="dark"] .minimum-advance-card span {
+  color: var(--chip-text);
+}
+
+[data-theme="dark"] .minimum-advance-card strong {
+  color: var(--text);
+}
+
+[data-theme="dark"] .empty-state {
+  border-color: var(--line);
+  background: var(--field-bg);
+  color: var(--chip-text);
+}
+
+[data-theme="dark"] :is(
+  .timeline-item.em-andamento,
+  .timeline-item.programada,
+  .timeline-item.finalizada,
+  .timeline-item.pendente,
+  .timeline-item.pendente-agora,
+  .timeline-item.recusada,
+  .timeline-item.cancelada
+) {
+  background: var(--field-bg);
+}
+
+[data-theme="dark"] :is(.timeline-item.em-andamento, .timeline-item.programada) {
+  border-color: rgba(113, 201, 173, 0.42);
+  box-shadow: inset 4px 0 0 var(--primary);
+}
+
+[data-theme="dark"] :is(.timeline-item.pendente, .timeline-item.pendente-agora) {
+  border-color: rgba(232, 186, 99, 0.42);
+  box-shadow: inset 4px 0 0 var(--warning);
+}
+
+[data-theme="dark"] :is(.timeline-item.recusada, .timeline-item.cancelada) {
+  border-color: rgba(240, 139, 139, 0.42);
+  box-shadow: inset 4px 0 0 var(--danger);
+}
+
+[data-theme="dark"] .timeline-item.finalizada {
+  border-color: rgba(159, 177, 170, 0.34);
+  box-shadow: inset 4px 0 0 var(--muted);
+}
+
+[data-theme="dark"] .timeline-dot.finalizada {
+  background: var(--muted);
+}
+
+[data-theme="dark"] .environment-card .status-pill.livre {
+  border: 1px solid rgba(113, 201, 173, 0.42);
+  background: var(--primary-soft);
+  color: var(--text);
+}
+
+[data-theme="dark"] .environment-card .tag-row span {
+  border: 1px solid rgba(113, 201, 173, 0.24);
+  background: var(--surface-soft);
+  color: var(--chip-text);
+}
+
+[data-theme="dark"] .environment-next {
+  border-color: var(--line);
+  background: var(--field-bg);
+}
+
+.environment-next {
+  padding-left: 12px;
+}
+
+[data-theme="dark"] .environment-next strong {
+  color: var(--text);
+}
+
+[data-theme="dark"] .login-page {
+  background:
+    radial-gradient(circle at top left, rgba(113, 201, 173, 0.16), transparent 34rem),
+    var(--bg);
+  color: var(--text);
+}
+
+[data-theme="dark"] .login-hero {
+  color: var(--text);
+}
+
+[data-theme="dark"] .login-hero p:not(.eyebrow) {
+  color: var(--muted);
+}
+
+[data-theme="dark"] .login-panel,
+[data-theme="dark"] .login-user-card {
+  border-color: var(--line);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow);
+}
+
+[data-theme="dark"] .login-user-card:hover {
+  border-color: rgba(113, 201, 173, 0.44);
+  background: var(--surface-soft);
+}
+
+[data-theme="dark"] .login-user-card span {
+  color: var(--on-primary);
+  background: var(--primary);
+}
+
+[data-theme="dark"] .login-user-card small {
+  color: var(--muted);
+}
+
+[data-theme="dark"] .login-user-card .primary-button {
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+[data-theme="dark"] .login-user-card .primary-button:hover {
+  background: var(--primary-strong);
+}
+
+[data-theme="dark"] .guided-tour-button {
+  border-color: rgba(113, 201, 173, 0.42);
+  background: var(--primary);
+  color: var(--on-primary);
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.34);
+}
+
+[data-theme="dark"] .guided-tour-button:hover {
+  background: var(--primary-strong);
+}
+
+[data-theme="dark"] .guided-tour-scrim {
+  background: rgba(3, 10, 7, 0.58);
+}
+
+[data-theme="dark"] .guided-tour-highlight {
+  box-shadow:
+    0 0 0 9999px rgba(3, 10, 7, 0.58),
+    0 0 0 6px rgba(113, 201, 173, 0.18);
+}
+
+[data-theme="dark"] .guided-tour-actions button.primary-action {
+  color: var(--on-primary);
+}
+
+[data-theme="dark"] :is(
+  .request-panel,
+  .recommendation-panel,
+  .my-reservation-card
+) {
+  border-color: var(--line);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow);
+}
+
+[data-theme="dark"] :is(
+  .time-planner,
+  .date-time-card,
+  .space-choice-card,
+  .review-box,
+  .my-reservations-status-tabs
+) {
+  border-color: var(--line);
+  background: var(--field-bg);
+  color: var(--text);
+}
+
+[data-theme="dark"] :is(
+  .form-grid select,
+  .form-grid input,
+  .full-field textarea,
+  .date-time-card input,
+  .date-time-card select,
+  .my-reservations-toolbar input,
+  .reservation-cancel-area textarea
+) {
+  border-color: var(--line);
+  background: var(--field-bg);
+  color: var(--text);
+}
+
+[data-theme="dark"] :is(
+  .time-planner-header strong,
+  .space-choice-card strong,
+  .selected-space-summary strong,
+  .my-reservation-card strong,
+  .resource-picker > span
+) {
+  color: var(--text);
+}
+
+[data-theme="dark"] :is(
+  .recommendation-panel p,
+  .space-choice-card span,
+  .selected-space-summary span,
+  .review-box p,
+  .my-reservation-main span,
+  .reservation-meta-row span,
+  .reservation-purpose p
+) {
+  color: var(--muted);
+}
+
+[data-theme="dark"] :is(
+  .step-tabs button,
+  .resource-picker button,
+  .space-choice-card button,
+  .selected-space-summary button,
+  .wizard-actions button:first-child,
+  .soft-danger-button,
+  .reservation-cancel-area form button:first-child
+) {
+  border-color: var(--line);
+  background: var(--surface);
+  color: var(--primary-strong);
+}
+
+[data-theme="dark"] .step-tabs button span {
+  background: var(--muted-soft);
+  color: var(--text);
+}
+
+[data-theme="dark"] :is(
+  .step-tabs button.active,
+  .resource-picker button.active,
+  .space-choice-card.selected,
+  .selected-space-summary,
+  .minimum-advance-card
+) {
+  border-color: rgba(113, 201, 173, 0.42);
+  background: var(--primary-soft);
+  color: var(--primary-strong);
+}
+
+[data-theme="dark"] .space-choice-card button.selected-action,
+[data-theme="dark"] :is(.wizard-actions button:last-child, .wizard-actions .primary-action) {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+[data-theme="dark"] .slot-chip.free {
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+[data-theme="dark"] .slot-chip.pending {
+  background: var(--warning-panel);
+  color: var(--warning);
+}
+
+[data-theme="dark"] .slot-chip.approved {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+[data-theme="dark"] .slot-chip.locked {
+  background: var(--muted-soft);
+  color: var(--muted);
+}
+
+[data-theme="dark"] :is(.inline-warning, .reservation-note.warning) {
+  border-color: rgba(232, 186, 99, 0.3);
+  background: var(--warning-panel);
+  color: var(--warning);
+}
+
+[data-theme="dark"] :is(
+  .inline-warning.danger,
+  .expired-notice,
+  .reservation-note.danger,
+  .reservation-cancel-area .danger-action
+) {
+  border-color: rgba(240, 139, 139, 0.3);
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+[data-theme="dark"] .reservation-note:not(.success):not(.warning):not(.danger),
+[data-theme="dark"] .reservation-note.muted {
+  border-color: var(--line);
+  background: var(--muted-soft);
+  color: var(--chip-text);
+}
+
+[data-theme="dark"] .reservation-note.success {
+  border-color: rgba(113, 201, 173, 0.3);
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 1ms !important;
   }
 }

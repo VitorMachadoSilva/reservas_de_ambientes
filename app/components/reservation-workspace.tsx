@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { Moon, Sun } from "lucide-react";
+import { useEffect, useState } from "react";
 import { AgendaPageView } from "./agenda/agenda-view";
 import { ApprovalsPageView } from "./approvals/approvals-view";
 import { DashboardPageView } from "./dashboard/dashboard-view";
@@ -40,16 +41,56 @@ const allowedViews: Record<View, string[]> = {
   "registrations-resources": ["ADMIN"],
 };
 
+const sidebarStorageKey = "reservation-sidebar-collapsed";
+const themeStorageKey = "reservation-theme";
+
+function persistSidebarState(collapsed: boolean) {
+  localStorage.setItem(sidebarStorageKey, String(collapsed));
+  document.cookie = `${sidebarStorageKey}=${collapsed}; path=/; max-age=31536000; SameSite=Lax`;
+}
+
+function toggleTheme() {
+  const currentTheme = document.documentElement.dataset.theme === "dark" ? "dark" : "light";
+  const nextTheme = currentTheme === "dark" ? "light" : "dark";
+
+  document.documentElement.dataset.theme = nextTheme;
+  localStorage.setItem(themeStorageKey, nextTheme);
+  document.cookie = `${themeStorageKey}=${nextTheme}; path=/; max-age=31536000; SameSite=Lax`;
+}
+
 export function ReservationWorkspace(props: ReservationWorkspaceProps) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(Boolean(props.initialSidebarCollapsed));
   const canView = allowedViews[props.view].includes(props.currentUser.role);
+
+  useEffect(() => {
+    persistSidebarState(collapsed);
+  }, [collapsed]);
+
+  useEffect(() => {
+    function syncTheme(event: StorageEvent) {
+      if (
+        event.key === themeStorageKey &&
+        (event.newValue === "light" || event.newValue === "dark")
+      ) {
+        document.documentElement.dataset.theme = event.newValue;
+      }
+    }
+
+    window.addEventListener("storage", syncTheme);
+    return () => window.removeEventListener("storage", syncTheme);
+  }, []);
+
+  function updateCollapsed(nextCollapsed: boolean) {
+    setCollapsed(nextCollapsed);
+    persistSidebarState(nextCollapsed);
+  }
 
   return (
     <main className={`app-shell ${collapsed ? "sidebar-collapsed" : ""}`}>
       <AppSidebar
         collapsed={collapsed}
         currentUser={props.currentUser}
-        setCollapsed={setCollapsed}
+        setCollapsed={updateCollapsed}
       />
       <section className="content">
         <PageTopbar {...props} />
@@ -98,14 +139,26 @@ function PageTopbar({ currentUser, view }: ReservationWorkspaceProps) {
         <p className="eyebrow">{eyebrow}</p>
         <h1>{title}</h1>
       </div>
-      <div className="profile-cluster">
-        <div>
-          <span>Usuario logado</span>
-          <strong>{currentUser.name}</strong>
-        </div>
-        <div>
-          <span>Perfil</span>
-          <strong>{roleLabels[currentUser.role] ?? currentUser.role}</strong>
+      <div className="topbar-actions">
+        <button
+          className="theme-toggle"
+          type="button"
+          title="Alternar tema"
+          aria-label="Alternar tema"
+          onClick={toggleTheme}
+        >
+          <Sun className="theme-icon theme-icon-light" size={18} />
+          <Moon className="theme-icon theme-icon-dark" size={18} />
+        </button>
+        <div className="profile-cluster">
+          <div>
+            <span>Usuario logado</span>
+            <strong>{currentUser.name}</strong>
+          </div>
+          <div>
+            <span>Perfil</span>
+            <strong>{roleLabels[currentUser.role] ?? currentUser.role}</strong>
+          </div>
         </div>
       </div>
     </header>

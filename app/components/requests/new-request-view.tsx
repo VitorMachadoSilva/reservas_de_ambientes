@@ -25,9 +25,11 @@ type Entity = {
   type?: string;
   capacity?: number;
   location?: string;
-  resources?: Entity[];
+  resources?: ResourceEntity[];
   courseId?: string;
 };
+
+type ResourceEntity = Entity | { resource: Entity };
 
 type ReservationStatus = "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED" | "EXPIRED";
 
@@ -78,6 +80,11 @@ const timeSlots = [
 
 function entityName(entity?: Entity | null, fallback = "Nao informado") {
   return entity?.name || entity?.code || entity?.email || fallback;
+}
+
+function resourceKey(resource: ResourceEntity) {
+  if ("resource" in resource) return resource.resource.id || resource.resource.name;
+  return resource.id || resource.name;
 }
 
 function dateInputValue(value?: string | Date) {
@@ -208,7 +215,7 @@ export function NewRequestPageView({
   const recommendedSpaces = spaces.filter((space) => {
     if (space.active === false) return false;
     const matchesType = !spaceType || (space.type || "").toLowerCase() === spaceType.toLowerCase();
-    const spaceResourceNames = new Set((space.resources || []).map((resource) => resource.id || resource.name));
+    const spaceResourceNames = new Set((space.resources || []).map(resourceKey));
     const hasResources = selectedResourceIds.every((id) => spaceResourceNames.has(id));
     return matchesType && hasResources;
   });
@@ -266,14 +273,6 @@ export function NewRequestPageView({
 
   return (
     <section className="request-page">
-      <div className="page-heading">
-        <div>
-          <span className="eyebrow">Docente</span>
-          <h1>Encontre um ambiente e envie para aprovacao</h1>
-          <p>Preencha os dados, escolha um unico ambiente e acompanhe a avaliacao pela pagina Minhas Reservas.</p>
-        </div>
-      </div>
-
       <div className="request-grid">
         <form
           action={createReservationRequest}

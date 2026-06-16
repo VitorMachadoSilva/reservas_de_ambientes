@@ -1,11 +1,13 @@
 import type { ReservationRequest } from "./types";
 
+type DateValue = string | Date;
+
 export function parseDateTime(date: string, time: string) {
   if (!date || !time) return null;
   return new Date(`${date}T${time}:00`);
 }
 
-export function formatDateTime(value: string) {
+export function formatDateTime(value: DateValue) {
   const date = new Date(value);
   const day = String(date.getDate()).padStart(2, "0");
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -16,8 +18,8 @@ export function formatDateTime(value: string) {
   return `${day}/${month}/${year}, ${hour}:${minute}`;
 }
 
-export function formatTimeRange(startAt: string, endAt: string) {
-  const formatTime = (value: string) => {
+export function formatTimeRange(startAt: DateValue, endAt: DateValue) {
+  const formatTime = (value: DateValue) => {
     const date = new Date(value);
     const hour = String(date.getHours()).padStart(2, "0");
     const minute = String(date.getMinutes()).padStart(2, "0");
@@ -28,11 +30,12 @@ export function formatTimeRange(startAt: string, endAt: string) {
   return `${formatTime(startAt)} - ${formatTime(endAt)}`;
 }
 
-export function inputDateFromValue(value: string) {
+export function inputDateFromValue(value: DateValue) {
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
   return value.slice(0, 10);
 }
 
-export function minutesFromDateTime(value: string) {
+export function minutesFromDateTime(value: DateValue) {
   const date = new Date(value);
   return date.getHours() * 60 + date.getMinutes();
 }

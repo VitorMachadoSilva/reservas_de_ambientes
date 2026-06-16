@@ -38,6 +38,7 @@ export async function expireStaleReservationRequests() {
   );
 
   revalidatePath("/");
+  revalidatePath("/painel");
   revalidatePath("/aprovacoes");
   revalidatePath("/minhas-reservas");
   return expiredIds.length;
@@ -51,6 +52,7 @@ import { prisma } from "@/lib/prisma";
 
 const appPaths = [
   "/",
+  "/painel",
   "/nova-solicitacao",
   "/minhas-reservas",
   "/aprovacoes",
@@ -94,7 +96,7 @@ export async function loginAsUser(formData: FormData) {
     path: "/",
   });
 
-  redirect("/?toast=login-realizado");
+  redirect("/painel?toast=login-realizado");
 }
 
 export async function logoutUser() {

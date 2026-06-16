@@ -3,7 +3,7 @@ import { ReservationWorkspace } from "@/app/components/reservation-workspace";
 import { getReservationPageData, loginRequired } from "@/lib/reservation-data";
 import { getInitialSidebarCollapsed } from "@/lib/sidebar-state";
 
-export default async function SpaceRegistrationsPage() {
+export default async function DashboardPage() {
   const data = await getReservationPageData();
 
   if (data === loginRequired) redirect("/login");
@@ -14,7 +14,7 @@ export default async function SpaceRegistrationsPage() {
   return (
     <ReservationWorkspace
       {...data}
-      view="registrations-spaces"
+      view="dashboard"
       initialSidebarCollapsed={initialSidebarCollapsed}
     />
   );

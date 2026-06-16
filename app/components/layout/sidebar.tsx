@@ -28,8 +28,9 @@ type SidebarProps = {
 
 export function Sidebar({ collapsed, currentUser, setCollapsed }: SidebarProps) {
   const pathname = usePathname();
+  const toggleLabel = collapsed ? "Expandir menu" : "Recolher menu";
   const navItems = [
-    { href: "/", label: "Painel", icon: LayoutDashboard },
+    { href: "/painel", label: "Painel", icon: LayoutDashboard },
     {
       href: "/nova-solicitacao",
       label: "Nova solicitacao",
@@ -80,10 +81,11 @@ export function Sidebar({ collapsed, currentUser, setCollapsed }: SidebarProps) 
         className="sidebar-toggle"
         type="button"
         onClick={() => setCollapsed(!collapsed)}
-        title={collapsed ? "Expandir menu" : "Recolher menu"}
+        title={toggleLabel}
+        aria-label={toggleLabel}
+        aria-expanded={!collapsed}
       >
         {collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
-        <span>{collapsed ? "Expandir" : "Recolher"}</span>
       </button>
 
       <nav className="nav-list" aria-label="Navegacao principal">

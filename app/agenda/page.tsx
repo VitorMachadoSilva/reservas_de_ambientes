@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { ReservationWorkspace } from "@/app/components/reservation-workspace";
 import { getReservationPageData, loginRequired } from "@/lib/reservation-data";
+import { getInitialSidebarCollapsed } from "@/lib/sidebar-state";
 
 export default async function AgendaPage() {
   const data = await getReservationPageData();
@@ -8,5 +9,13 @@ export default async function AgendaPage() {
   if (data === loginRequired) redirect("/login");
   if (!data) redirect("/setup");
 
-  return <ReservationWorkspace {...data} view="agenda" />;
+  const initialSidebarCollapsed = await getInitialSidebarCollapsed();
+
+  return (
+    <ReservationWorkspace
+      {...data}
+      view="agenda"
+      initialSidebarCollapsed={initialSidebarCollapsed}
+    />
+  );
 }
