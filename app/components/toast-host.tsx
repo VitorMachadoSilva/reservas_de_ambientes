@@ -81,6 +81,11 @@ const toastMessages: Record<string, ToastTemplate> = {
     description: "Ja existe um ambiente com esse nome.",
     tone: "error",
   },
+  "ambiente-invalido": {
+    title: "Ambiente indisponivel",
+    description: "Escolha um ambiente ativo antes de enviar a solicitacao.",
+    tone: "error",
+  },
   "aprovador-invalido": {
     title: "Aprovador invalido",
     description: "Selecione um usuario com perfil de aprovador ou administrador.",

@@ -60,7 +60,7 @@ type NewRequestViewProps = {
   [key: string]: unknown;
 };
 
-const stepLabels = ["Dados academicos", "Criterios", "Ambiente", "Revisao"];
+const stepLabels = ["Dados academicos", "Criterios", "Revisao"];
 const timeSlots = [
   "07:00",
   "08:00",
@@ -79,6 +79,8 @@ const timeSlots = [
   "21:00",
   "22:00",
 ];
+const lastOperationalTime = timeSlots[timeSlots.length - 1];
+const selectableTimeSlots = timeSlots.slice(0, -1);
 const durationOptions = [
   { value: 60, label: "1 hora" },
   { value: 90, label: "1h30" },
@@ -204,9 +206,12 @@ function addMinutesToTime(time: string, minutesToAdd: number) {
 }
 
 function rangeSlots(startTime: string, endTime: string) {
-  return timeSlots
-    .slice(0, -1)
+  return selectableTimeSlots
     .filter((slot) => slot >= startTime && slot < endTime);
+}
+
+function isDurationWithinOperationalHours(startTime: string, durationMinutes: number) {
+  return addMinutesToTime(startTime, durationMinutes) <= lastOperationalTime;
 }
 
 function slotStatus(
@@ -293,7 +298,9 @@ export function NewRequestPageView({
   const rankedSpaces = spaces
     .filter((space) => space.active !== false)
     .map((space) => {
-      const status = rangeStatus(date, startTime, endTime, reservationRequests, space.id || "", currentTime);
+      const status = selectedSpaceId
+        ? rangeStatus(date, startTime, endTime, reservationRequests, space.id || "", currentTime)
+        : "free";
       const matchesType = !spaceType || (space.type || "").toLowerCase() === spaceType.toLowerCase();
       const hasCapacity = !studentsNumber || !space.capacity || space.capacity >= studentsNumber;
       const spaceResourceIds = new Set((space.resources || []).map(resourceKey));
@@ -340,6 +347,9 @@ export function NewRequestPageView({
   const selectedSlotStatus = selectedSpaceId
     ? rangeStatus(date, startTime, endTime, reservationRequests, selectedSpaceId, currentTime)
     : "free";
+  const canValidateSpaceAvailability = Boolean(selectedSpaceId);
+  const timeSelectionLocked = !selectedSpaceId;
+  const selectedRangeInvalid = !isDurationWithinOperationalHours(startTime, durationMinutes);
   const stepErrors = [
     [
       !courseId ? "Selecione um curso." : "",
@@ -361,19 +371,18 @@ export function NewRequestPageView({
       violatesAdvanceRule
         ? "Docentes precisam solicitar reservas com pelo menos 24 horas de antecedencia."
         : "",
-    ].filter(Boolean),
-    [
-      !selectedSpaceId ? "Escolha um ambiente." : "",
+      !selectedSpaceId ? "Escolha um ambiente antes de definir data e horario." : "",
       selectedSlotStatus === "approved" || selectedSlotStatus === "pending"
         ? "O ambiente escolhido nao esta livre durante todo o periodo."
         : "",
+      selectedRangeInvalid ? "A duracao escolhida ultrapassa o horario de funcionamento." : "",
     ].filter(Boolean),
     [],
   ];
   const canOpenStep = (targetStep: number) =>
     stepErrors.slice(0, targetStep).every((errors) => errors.length === 0);
   const cannotSubmit =
-    stepErrors.slice(0, 3).some((errors) => errors.length > 0);
+    stepErrors.slice(0, 2).some((errors) => errors.length > 0);
 
   function showStepErrors(stepIndex: number) {
     return submittedStepAttempt === stepIndex && stepErrors[stepIndex].length > 0;
@@ -391,11 +400,13 @@ export function NewRequestPageView({
   }
 
   function setStartAndDuration(nextStartTime: string, nextDuration = durationMinutes) {
+    if (!isDurationWithinOperationalHours(nextStartTime, nextDuration)) return;
     setStartTime(nextStartTime);
     setEndTime(addMinutesToTime(nextStartTime, nextDuration));
   }
 
   function changeDuration(nextDuration: number) {
+    if (!isDurationWithinOperationalHours(startTime, nextDuration)) return;
     setDurationMinutes(nextDuration);
     setEndTime(addMinutesToTime(startTime, nextDuration));
   }
@@ -433,22 +444,28 @@ export function NewRequestPageView({
       : "free";
     const currentBlocked =
       violatesMinimumAdvance(date, startTime, currentTime, isAdmin) ||
-      currentStatus === "approved" ||
-      currentStatus === "pending";
+      selectedRangeInvalid ||
+      (canValidateSpaceAvailability &&
+        (currentStatus === "approved" || currentStatus === "pending"));
 
     if (!currentBlocked && startTime < endTime) return;
 
-    const nextSlot = timeSlots.slice(0, -1).find((slot) => {
+    const nextSlot = selectableTimeSlots.find((slot) => {
       const status = selectedSpaceId
         ? rangeStatus(date, slot, addMinutesToTime(slot, durationMinutes), reservationRequests, selectedSpaceId, currentTime)
-        : slotStatus(slot, date, reservationRequests, selectedSpaceId, currentTime);
-      return !violatesMinimumAdvance(date, slot, currentTime, isAdmin) && status !== "approved" && status !== "pending";
+        : "free";
+      return (
+        isDurationWithinOperationalHours(slot, durationMinutes) &&
+        !violatesMinimumAdvance(date, slot, currentTime, isAdmin) &&
+        status !== "approved" &&
+        status !== "pending"
+      );
     });
 
     if (!nextSlot) return;
 
     setStartAndDuration(nextSlot);
-  }, [currentTime, date, durationMinutes, endTime, isAdmin, reservationRequests, selectedSpaceId, startTime]);
+  }, [canValidateSpaceAvailability, currentTime, date, durationMinutes, endTime, isAdmin, reservationRequests, selectedRangeInvalid, selectedSpaceId, startTime]);
 
   return (
     <section className="request-page">
@@ -532,10 +549,129 @@ export function NewRequestPageView({
 
           {step === 1 && (
             <div className="criteria-stack">
-              <div className="time-planner">
+              <div className="criteria-section">
+                <div className="criteria-section-heading">
+                  <div>
+                    <span className="eyebrow">Ambiente</span>
+                    <strong>Tipo, recursos e laboratorio</strong>
+                  </div>
+                  {selectedSpace ? <span>{entityName(selectedSpace)}</span> : null}
+                </div>
+
+                <div className="form-grid">
+                  <label>
+                    Tipo de ambiente
+                    <select value={spaceType} onChange={(event) => setSpaceType(event.target.value)}>
+                      <option>Laboratorio</option>
+                      <option>Sala</option>
+                      <option>Auditorio</option>
+                    </select>
+                  </label>
+                  <label className={!positiveIntegerPattern.test(estimatedStudents) && showStepErrors(1) ? "field-invalid" : ""}>
+                    Alunos estimados
+                    <input
+                      inputMode="numeric"
+                      pattern={positiveIntegerPattern.source}
+                      placeholder="Ex.: 32"
+                      value={estimatedStudents}
+                      onChange={(event) => setEstimatedStudents(event.target.value.replace(/\D/g, ""))}
+                    />
+                  </label>
+                </div>
+
+                <div className="resource-picker">
+                  <span>Recursos desejados</span>
+                  <div>
+                    {resources.map((resource) => {
+                      const id = resource.id || entityName(resource);
+                      return (
+                        <button
+                          className={selectedResourceIds.includes(id) ? "active" : ""}
+                          key={id}
+                          type="button"
+                          onClick={() => toggleResource(id)}
+                        >
+                          {entityName(resource)}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="space-choice-list compact">
+                  {rankedSpaces.length === 0 && (
+                    <div className="empty-state compact">Nenhum ambiente ativo cadastrado.</div>
+                  )}
+                  {rankedSpaces.some((space) => space.fullMatch) && (
+                    <div className="match-section-label">Atendem 100% do pedido</div>
+                  )}
+                  {rankedSpaces.map((space, index) => {
+                    const isSelected = selectedSpaceId === space.id;
+                    const isDisabled = Boolean(selectedSpaceId && !isSelected);
+                    const status = space.availabilityStatus;
+                    const previousSpace = rankedSpaces[index - 1];
+                    const startsPartialSection =
+                      !space.fullMatch && (!previousSpace || previousSpace.fullMatch);
+                    return (
+                      <Fragment key={space.id || entityName(space)}>
+                        {startsPartialSection && (
+                          <div className="match-section-label partial">
+                            Atendem parcialmente
+                          </div>
+                        )}
+                        <article
+                          className={`space-choice-card ${space.fullMatch ? "full-match" : "partial-match"} ${isSelected ? "selected" : ""} ${isDisabled ? "disabled" : ""}`}
+                          key={space.id || entityName(space)}
+                        >
+                          <div>
+                            <Building2 size={18} />
+                            <section>
+                              <strong>{entityName(space)}</strong>
+                              <span>{space.location || space.type || "Ambiente cadastrado"}</span>
+                              <div className="match-tags">
+                                <span>{space.score}% aderente</span>
+                                {space.fullMatch ? <span>100% do pedido</span> : null}
+                                {space.matchedResourceIds.length > 0 ? (
+                                  <span>{space.matchedResourceIds.length} recurso(s)</span>
+                                ) : null}
+                              </div>
+                              {!space.fullMatch && space.missingCriteria.length > 0 && (
+                                <small>Falta: {space.missingCriteria.join(", ")}</small>
+                              )}
+                            </section>
+                          </div>
+                          <div className="space-choice-meta">
+                            {space.capacity ? <span>{space.capacity} lugares</span> : null}
+                            <span className={`availability-dot ${status}`}>
+                              {status === "approved" ? "Reservado" : status === "pending" ? "Pendente" : "Livre"}
+                            </span>
+                          </div>
+                          <button
+                            className={isSelected ? "selected-action" : ""}
+                            disabled={isDisabled || (!isSelected && (status === "approved" || status === "pending"))}
+                            type="button"
+                            onClick={() => toggleSpace(space.id)}
+                          >
+                            {isSelected ? (
+                              <>
+                                <CheckCircle2 size={16} />
+                                Selecionado
+                              </>
+                            ) : (
+                              "Escolher"
+                            )}
+                          </button>
+                        </article>
+                      </Fragment>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className={`time-planner ${timeSelectionLocked ? "locked" : ""}`}>
                 <div className="time-planner-header">
                   <div>
-                    <span className="eyebrow">Criterios</span>
+                    <span className="eyebrow">Agenda</span>
                     <strong>Data, inicio e fim</strong>
                   </div>
                   <div className="time-legend">
@@ -557,29 +693,34 @@ export function NewRequestPageView({
                 )}
 
                 <div className="date-time-card">
-                  <label>
+                  <label className="selected-field">
                     <CalendarDays size={16} />
                     Data
                     <input
+                      disabled={timeSelectionLocked}
                       min={minimumDate || undefined}
                       type="date"
                       value={date}
                       onChange={(event) => setDate(event.target.value)}
                     />
                   </label>
-                  <label>
+                  <label className="selected-field">
                     <Clock3 size={16} />
                     Inicio
-                    <select value={startTime} onChange={(event) => setStartAndDuration(event.target.value)}>
-                      {timeSlots.slice(0, -1).map((slot) => {
+                    <select
+                      disabled={timeSelectionLocked}
+                      value={startTime}
+                      onChange={(event) => setStartAndDuration(event.target.value)}
+                    >
+                      {selectableTimeSlots.map((slot) => {
                         const status = selectedSpaceId
                           ? rangeStatus(date, slot, addMinutesToTime(slot, durationMinutes), reservationRequests, selectedSpaceId, currentTime)
-                          : slotStatus(slot, date, reservationRequests, selectedSpaceId, currentTime);
+                          : "free";
                         const advanceBlocked = violatesMinimumAdvance(date, slot, currentTime, isAdmin);
-                        const durationBlocked = addMinutesToTime(slot, durationMinutes) > timeSlots[timeSlots.length - 1];
+                        const durationBlocked = !isDurationWithinOperationalHours(slot, durationMinutes);
                         return (
                           <option
-                            disabled={durationBlocked || advanceBlocked || status === "approved" || status === "pending"}
+                            disabled={timeSelectionLocked || durationBlocked || advanceBlocked || status === "approved" || status === "pending"}
                             key={slot}
                             value={slot}
                           >
@@ -598,16 +739,17 @@ export function NewRequestPageView({
                       })}
                     </select>
                   </label>
-                  <label>
+                  <label className="selected-field">
                     <Clock3 size={16} />
                     Duracao
                     <select
+                      disabled={timeSelectionLocked}
                       value={durationMinutes}
                       onChange={(event) => changeDuration(Number(event.target.value))}
                     >
                       {durationOptions.map((option) => (
                         <option
-                          disabled={addMinutesToTime(startTime, option.value) > timeSlots[timeSlots.length - 1]}
+                          disabled={timeSelectionLocked || !isDurationWithinOperationalHours(startTime, option.value)}
                           key={option.value}
                           value={option.value}
                         >
@@ -616,25 +758,27 @@ export function NewRequestPageView({
                       ))}
                     </select>
                   </label>
-                  <label>
+                  <label className="selected-field">
                     <Clock3 size={16} />
                     Fim
-                    <input readOnly value={endTime} />
+                    <input disabled={timeSelectionLocked} readOnly value={endTime} />
                   </label>
                 </div>
 
                 <div className="slot-grid">
-                  {timeSlots.slice(0, -1).map((slot) => {
+                  {selectableTimeSlots.map((slot) => {
                     const status = selectedSpaceId
                       ? rangeStatus(date, slot, addMinutesToTime(slot, durationMinutes), reservationRequests, selectedSpaceId, currentTime)
-                      : slotStatus(slot, date, reservationRequests, selectedSpaceId, currentTime);
+                      : "free";
                     const advanceBlocked = violatesMinimumAdvance(date, slot, currentTime, isAdmin);
-                    const durationBlocked = addMinutesToTime(slot, durationMinutes) > timeSlots[timeSlots.length - 1];
+                    const durationBlocked = !isDurationWithinOperationalHours(slot, durationMinutes);
                     const active = slot === startTime;
+                    const inRange = slot >= startTime && slot < endTime;
+                    const isRangeEnd = addMinutesToTime(slot, 60) === endTime;
                     return (
                       <button
-                        className={`slot-chip ${advanceBlocked ? "locked" : status} ${active ? "active" : ""}`}
-                        disabled={durationBlocked || advanceBlocked || status === "approved" || status === "pending"}
+                        className={`slot-chip ${advanceBlocked || timeSelectionLocked ? "locked" : status} ${active ? "active" : ""} ${inRange ? "in-range" : ""} ${isRangeEnd ? "range-end" : ""}`}
+                        disabled={timeSelectionLocked || durationBlocked || advanceBlocked || status === "approved" || status === "pending"}
                         key={slot}
                         type="button"
                         onClick={() => setStartAndDuration(slot)}
@@ -657,48 +801,14 @@ export function NewRequestPageView({
                     Este horario ja esta bloqueado para o ambiente selecionado.
                   </div>
                 )}
+                {!selectedSpaceId && (
+                  <div className="inline-warning">
+                    <Info size={16} />
+                    Escolha um ambiente acima para liberar data, inicio e fim.
+                  </div>
+                )}
               </div>
 
-              <div className="form-grid">
-                <label>
-                  Tipo de ambiente
-                  <select value={spaceType} onChange={(event) => setSpaceType(event.target.value)}>
-                    <option>Laboratorio</option>
-                    <option>Sala</option>
-                    <option>Auditorio</option>
-                  </select>
-                </label>
-              </div>
-              <div className="resource-picker">
-                <span>Recursos desejados</span>
-                <div>
-                  {resources.map((resource) => {
-                    const id = resource.id || entityName(resource);
-                    return (
-                      <button
-                        className={selectedResourceIds.includes(id) ? "active" : ""}
-                        key={id}
-                        type="button"
-                        onClick={() => toggleResource(id)}
-                      >
-                        {entityName(resource)}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-              <div className="form-grid">
-                <label className={!positiveIntegerPattern.test(estimatedStudents) && showStepErrors(1) ? "field-invalid" : ""}>
-                  Alunos estimados
-                  <input
-                    inputMode="numeric"
-                    pattern={positiveIntegerPattern.source}
-                    placeholder="Ex.: 32"
-                    value={estimatedStudents}
-                    onChange={(event) => setEstimatedStudents(event.target.value.replace(/\D/g, ""))}
-                  />
-                </label>
-              </div>
               <label className="full-field">
                 Finalidade
                 <textarea
@@ -719,83 +829,6 @@ export function NewRequestPageView({
           )}
 
           {step === 2 && (
-            <div className="space-choice-list compact">
-              {rankedSpaces.length === 0 && (
-                <div className="empty-state compact">Nenhum ambiente ativo cadastrado.</div>
-              )}
-              {rankedSpaces.some((space) => space.fullMatch) && (
-                <div className="match-section-label">Atendem 100% do pedido</div>
-              )}
-              {rankedSpaces.map((space, index) => {
-                const isSelected = selectedSpaceId === space.id;
-                const isDisabled = Boolean(selectedSpaceId && !isSelected);
-                const status = space.availabilityStatus;
-                const previousSpace = rankedSpaces[index - 1];
-                const startsPartialSection =
-                  !space.fullMatch && (!previousSpace || previousSpace.fullMatch);
-                return (
-                  <Fragment key={space.id || entityName(space)}>
-                    {startsPartialSection && (
-                      <div className="match-section-label partial">
-                        Atendem parcialmente
-                      </div>
-                    )}
-                    <article
-                      className={`space-choice-card ${space.fullMatch ? "full-match" : "partial-match"} ${isSelected ? "selected" : ""} ${isDisabled ? "disabled" : ""}`}
-                      key={space.id || entityName(space)}
-                    >
-                      <div>
-                        <Building2 size={18} />
-                        <section>
-                          <strong>{entityName(space)}</strong>
-                          <span>{space.location || space.type || "Ambiente cadastrado"}</span>
-                          <div className="match-tags">
-                            <span>{space.score}% aderente</span>
-                            {space.fullMatch ? <span>100% do pedido</span> : null}
-                            {space.matchedResourceIds.length > 0 ? (
-                              <span>{space.matchedResourceIds.length} recurso(s)</span>
-                            ) : null}
-                          </div>
-                          {!space.fullMatch && space.missingCriteria.length > 0 && (
-                            <small>Falta: {space.missingCriteria.join(", ")}</small>
-                          )}
-                        </section>
-                      </div>
-                      <div className="space-choice-meta">
-                        {space.capacity ? <span>{space.capacity} lugares</span> : null}
-                        <span className={`availability-dot ${status}`}>
-                          {status === "approved" ? "Reservado" : status === "pending" ? "Pendente" : "Livre"}
-                        </span>
-                      </div>
-                      <button
-                        className={isSelected ? "selected-action" : ""}
-                        disabled={isDisabled || status === "approved" || status === "pending"}
-                        type="button"
-                        onClick={() => toggleSpace(space.id)}
-                      >
-                        {isSelected ? (
-                          <>
-                            <CheckCircle2 size={16} />
-                            Selecionado
-                          </>
-                        ) : (
-                          "Escolher"
-                        )}
-                      </button>
-                    </article>
-                  </Fragment>
-                );
-              })}
-              {showStepErrors(2) && (
-                <div className="validation-alert">
-                  <AlertTriangle size={16} />
-                  <span>{stepErrors[2].join(" ")}</span>
-                </div>
-              )}
-            </div>
-          )}
-
-          {step === 3 && (
             <div className="review-box">
               <Info size={18} />
               <div>
@@ -817,8 +850,8 @@ export function NewRequestPageView({
             <button disabled={step === 0} type="button" onClick={() => goToStep(Math.max(0, step - 1))}>
               Voltar
             </button>
-            {step < 3 ? (
-              <button type="button" onClick={() => goToStep(Math.min(3, step + 1))}>
+            {step < 2 ? (
+              <button type="button" onClick={() => goToStep(Math.min(2, step + 1))}>
                 Continuar
               </button>
             ) : (
@@ -847,7 +880,7 @@ export function NewRequestPageView({
               </button>
             </div>
           ) : (
-            <div className="empty-state compact">Escolha um ambiente na etapa Ambiente.</div>
+            <div className="empty-state compact">Escolha um ambiente na etapa Criterios.</div>
           )}
         </aside>
       </div>

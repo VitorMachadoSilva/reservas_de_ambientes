@@ -2224,6 +2224,7 @@ textarea:focus {
 .muted-chip {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   min-height: 30px;
   padding: 0 10px;
@@ -2233,6 +2234,9 @@ textarea:focus {
   color: var(--primary-strong);
   font-size: 12px;
   font-weight: 900;
+  line-height: 1;
+  text-align: center;
+  white-space: nowrap;
 }
 
 .approver-chip-list button:hover {
@@ -2974,6 +2978,23 @@ textarea:focus {
   border-color: rgba(28, 119, 101, 0.65);
   box-shadow: 0 0 0 3px rgba(28, 119, 101, 0.12);
 }
+
+[data-theme="dark"] .maintenance-search {
+  border-color: var(--line);
+  background: var(--field-bg);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+  color: var(--text);
+}
+
+[data-theme="dark"] .maintenance-search::placeholder {
+  color: var(--muted);
+}
+
+[data-theme="dark"] .maintenance-search:focus {
+  border-color: rgba(113, 201, 173, 0.58);
+  box-shadow: 0 0 0 3px rgba(113, 201, 173, 0.16);
+}
+
 .reports-page {
   display: grid;
   gap: 18px;
@@ -3279,7 +3300,7 @@ textarea:focus {
 .step-tabs {
   display: grid;
   gap: 8px;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   margin-bottom: 16px;
 }
 
@@ -3388,6 +3409,42 @@ textarea:focus {
   gap: 14px;
 }
 
+.criteria-section {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid rgba(15, 76, 67, 0.12);
+  border-radius: 8px;
+  background: var(--field-bg);
+}
+
+.criteria-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.criteria-section-heading strong {
+  display: block;
+  color: #0a1f1b;
+  font-size: 1rem;
+}
+
+.criteria-section-heading > span {
+  max-width: 220px;
+  overflow: hidden;
+  padding: 6px 10px;
+  border: 1px solid rgba(28, 119, 101, 0.22);
+  border-radius: 999px;
+  background: var(--success-soft);
+  color: #0f4c43;
+  font-size: 0.76rem;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .time-planner {
   background: var(--field-bg);
   border: 1px solid rgba(15, 76, 67, 0.12);
@@ -3395,6 +3452,10 @@ textarea:focus {
   display: grid;
   gap: 12px;
   padding: 14px;
+}
+
+.time-planner.locked {
+  border-style: dashed;
 }
 
 .time-planner-header,
@@ -3493,6 +3554,20 @@ textarea:focus {
   flex: 1 1 150px;
 }
 
+.date-time-card label.selected-field input,
+.date-time-card label.selected-field select {
+  border-color: rgba(28, 119, 101, 0.36);
+  background: var(--primary-faint);
+  color: #0f4c43;
+}
+
+.date-time-card label.selected-field input:disabled,
+.date-time-card label.selected-field select:disabled {
+  border-color: rgba(100, 116, 139, 0.18);
+  background: var(--muted-soft);
+  color: #64748b;
+}
+
 .slot-grid {
   display: grid;
   gap: 8px;
@@ -3535,6 +3610,16 @@ textarea:focus {
 .slot-chip.active {
   border-color: currentColor;
   box-shadow: 0 0 0 3px rgba(28, 119, 101, 0.12);
+}
+
+.slot-chip.in-range {
+  border-color: rgba(28, 119, 101, 0.42);
+  box-shadow: inset 0 -3px 0 rgba(28, 119, 101, 0.35);
+}
+
+.slot-chip.active.in-range {
+  background: #1c7765;
+  color: #ffffff;
 }
 
 .inline-warning,
@@ -4334,6 +4419,7 @@ textarea:focus {
 
 [data-theme="dark"] :is(
   .time-planner,
+  .criteria-section,
   .date-time-card,
   .space-choice-card,
   .review-box,
@@ -4360,6 +4446,7 @@ textarea:focus {
 
 [data-theme="dark"] :is(
   .time-planner-header strong,
+  .criteria-section-heading strong,
   .space-choice-card strong,
   .selected-space-summary strong,
   .my-reservation-card strong,
@@ -4377,6 +4464,26 @@ textarea:focus {
   .reservation-meta-row span,
   .reservation-purpose p
 ) {
+  color: var(--muted);
+}
+
+[data-theme="dark"] .criteria-section-heading > span {
+  border-color: rgba(113, 201, 173, 0.32);
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+[data-theme="dark"] .date-time-card label.selected-field input,
+[data-theme="dark"] .date-time-card label.selected-field select {
+  border-color: rgba(113, 201, 173, 0.38);
+  background: var(--primary-soft);
+  color: var(--primary-strong);
+}
+
+[data-theme="dark"] .date-time-card label.selected-field input:disabled,
+[data-theme="dark"] .date-time-card label.selected-field select:disabled {
+  border-color: var(--line);
+  background: var(--muted-soft);
   color: var(--muted);
 }
 

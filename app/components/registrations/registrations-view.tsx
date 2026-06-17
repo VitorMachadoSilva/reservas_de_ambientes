@@ -575,7 +575,7 @@ export function RegistrationsPageView({
                 </div>
                 <div className="approver-chip-list">
                   {course.approvers.length === 0 && (
-                    <span className="muted-chip">Sem aprovador</span>
+                    <div className="muted-chip">Sem aprovador</div>
                   )}
                   {course.approvers.map(({ user }) => (
                     <form action={removeCourseApprover} key={user.id}>

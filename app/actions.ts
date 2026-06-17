@@ -140,7 +140,7 @@ export async function createReservationRequest(formData: FormData) {
   const courseId = requiredString(formData, "courseId");
   const disciplineId = requiredString(formData, "disciplineId");
   const classGroupId = requiredString(formData, "classGroupId");
-  const spaceId = requiredString(formData, "spaceId");
+  const spaceId = String(formData.get("spaceId") ?? "").trim();
   const date = requiredString(formData, "date");
   const startTime = requiredString(formData, "startTime");
   const endTime = requiredString(formData, "endTime");
@@ -155,6 +155,19 @@ export async function createReservationRequest(formData: FormData) {
 
   if (endAt <= startAt) {
     redirect("/nova-solicitacao?toast=horario-invalido");
+  }
+
+  if (!spaceId) {
+    redirect("/nova-solicitacao?toast=ambiente-invalido");
+  }
+
+  const selectedSpace = await prisma.space.findUnique({
+    where: { id: spaceId },
+    select: { active: true },
+  });
+
+  if (!selectedSpace || !selectedSpace.active) {
+    redirect("/nova-solicitacao?toast=ambiente-invalido");
   }
 
   const conflict = await hasSpaceConflict(spaceId, startAt, endAt);
