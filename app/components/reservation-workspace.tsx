@@ -132,13 +132,16 @@ function ActiveView(props: ReservationWorkspaceProps) {
 
 function PageTopbar({ currentUser, view }: ReservationWorkspaceProps) {
   const [eyebrow, title] = pageTitles[view];
+  const hideHeading = view === "approvals";
 
   return (
-    <header className="topbar">
-      <div>
-        <p className="eyebrow">{eyebrow}</p>
-        <h1>{title}</h1>
-      </div>
+    <header className={`topbar ${hideHeading ? "topbar-actions-only" : ""}`}>
+      {!hideHeading && (
+        <div>
+          <p className="eyebrow">{eyebrow}</p>
+          <h1>{title}</h1>
+        </div>
+      )}
       <div className="topbar-actions">
         <button
           className="theme-toggle"
