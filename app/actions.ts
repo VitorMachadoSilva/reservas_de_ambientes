@@ -99,6 +99,9 @@ function buildDateTime(date: string, time: string) {
   return new Date(`${date}T${time}:00`);
 }
 
+const reservationStartLimit = "07:00";
+const reservationEndLimit = "22:00";
+
 async function hasSpaceConflict(spaceId: string, startAt: Date, endAt: Date) {
   const conflict = await prisma.reservationRequest.findFirst({
     where: {
@@ -154,6 +157,14 @@ export async function createReservationRequest(formData: FormData) {
   }
 
   if (endAt <= startAt) {
+    redirect("/nova-solicitacao?toast=horario-invalido");
+  }
+
+  if (
+    startTime < reservationStartLimit ||
+    startTime >= reservationEndLimit ||
+    endTime > reservationEndLimit
+  ) {
     redirect("/nova-solicitacao?toast=horario-invalido");
   }
 

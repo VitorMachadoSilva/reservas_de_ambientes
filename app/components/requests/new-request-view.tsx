@@ -79,8 +79,8 @@ const timeSlots = [
   "21:00",
   "22:00",
 ];
-const lastOperationalTime = timeSlots[timeSlots.length - 1];
-const selectableTimeSlots = timeSlots.slice(0, -1);
+const lastOperationalTime = "22:00";
+const selectableTimeSlots = timeSlots.filter((slot) => slot < lastOperationalTime);
 const durationOptions = [
   { value: 60, label: "1 hora" },
   { value: 90, label: "1h30" },
@@ -292,6 +292,10 @@ export function NewRequestPageView({
   const invalidTimeRange = startTime >= endTime;
   const studentsNumber = Number(estimatedStudents);
   const selectedSpace = spaces.find((space) => space.id === selectedSpaceId);
+  const hasResourceCatalog = resources.length > 0;
+  const resourceCriteriaReady = !hasResourceCatalog || selectedResourceIds.length > 0;
+  const environmentCriteriaReady =
+    Boolean(spaceType) && positiveIntegerPattern.test(estimatedStudents) && resourceCriteriaReady;
 
   const visibleDisciplines = disciplines.filter((discipline) => !discipline.courseId || discipline.courseId === courseId);
   const visibleClassGroups = classGroups.filter((group) => !group.courseId || group.courseId === courseId);
@@ -350,6 +354,7 @@ export function NewRequestPageView({
   const canValidateSpaceAvailability = Boolean(selectedSpaceId);
   const timeSelectionLocked = !selectedSpaceId;
   const selectedRangeInvalid = !isDurationWithinOperationalHours(startTime, durationMinutes);
+  const environmentPanelLocked = !environmentCriteriaReady;
   const stepErrors = [
     [
       !courseId ? "Selecione um curso." : "",
@@ -364,6 +369,9 @@ export function NewRequestPageView({
       invalidTimeRange ? "O horario final precisa ser depois do inicio." : "",
       !positiveIntegerPattern.test(estimatedStudents)
         ? "Informe a quantidade estimada de alunos."
+        : "",
+      hasResourceCatalog && selectedResourceIds.length === 0
+        ? "Selecione pelo menos um recurso desejado."
         : "",
       !purposePattern.test(purpose.trim())
         ? "Informe a finalidade com pelo menos 8 caracteres."
@@ -381,6 +389,7 @@ export function NewRequestPageView({
   ];
   const canOpenStep = (targetStep: number) =>
     stepErrors.slice(0, targetStep).every((errors) => errors.length === 0);
+  const cannotContinue = stepErrors[step]?.length > 0;
   const cannotSubmit =
     stepErrors.slice(0, 2).some((errors) => errors.length > 0);
 
@@ -431,10 +440,98 @@ export function NewRequestPageView({
     setStep(nextStep);
   }
 
+  function renderSpaceChoices() {
+    return (
+      <div className={`space-choice-list compact ${environmentPanelLocked ? "locked" : ""}`}>
+        {environmentPanelLocked && (
+          <div className="inline-warning">
+            <Info size={16} />
+            Informe tipo de ambiente, alunos estimados e recursos desejados para escolher.
+          </div>
+        )}
+        {rankedSpaces.length === 0 && (
+          <div className="empty-state compact">Nenhum ambiente ativo cadastrado.</div>
+        )}
+        {rankedSpaces.some((space) => space.fullMatch) && (
+          <div className="match-section-label">Atendem 100% do pedido</div>
+        )}
+        {rankedSpaces.map((space, index) => {
+          const isSelected = selectedSpaceId === space.id;
+          const isDisabled = Boolean(selectedSpaceId && !isSelected);
+          const status = space.availabilityStatus;
+          const previousSpace = rankedSpaces[index - 1];
+          const startsPartialSection =
+            !space.fullMatch && (!previousSpace || previousSpace.fullMatch);
+
+          return (
+            <Fragment key={space.id || entityName(space)}>
+              {startsPartialSection && (
+                <div className="match-section-label partial">
+                  Atendem parcialmente
+                </div>
+              )}
+              <article
+                className={`space-choice-card ${space.fullMatch ? "full-match" : "partial-match"} ${isSelected ? "selected" : ""} ${isDisabled ? "disabled" : ""}`}
+              >
+                <div>
+                  <Building2 size={18} />
+                  <section>
+                    <strong>{entityName(space)}</strong>
+                    <span>{space.location || space.type || "Ambiente cadastrado"}</span>
+                    <div className="match-tags">
+                      <span>{space.score}% aderente</span>
+                      {space.fullMatch ? <span>100% do pedido</span> : null}
+                      {space.matchedResourceIds.length > 0 ? (
+                        <span>{space.matchedResourceIds.length} recurso(s)</span>
+                      ) : null}
+                    </div>
+                    {!space.fullMatch && space.missingCriteria.length > 0 && (
+                      <small>Falta: {space.missingCriteria.join(", ")}</small>
+                    )}
+                  </section>
+                </div>
+                <div className="space-choice-meta">
+                  {space.capacity ? <span>{space.capacity} lugares</span> : null}
+                  <span className={`availability-dot ${status}`}>
+                    {status === "approved" ? "Reservado" : status === "pending" ? "Pendente" : "Livre"}
+                  </span>
+                </div>
+                <button
+                  className={isSelected ? "selected-action" : ""}
+                  disabled={
+                    environmentPanelLocked ||
+                    isDisabled ||
+                    (!isSelected && (status === "approved" || status === "pending"))
+                  }
+                  type="button"
+                  onClick={() => toggleSpace(space.id)}
+                >
+                  {isSelected ? (
+                    <>
+                      <CheckCircle2 size={16} />
+                      Selecionado
+                    </>
+                  ) : (
+                    "Escolher"
+                  )}
+                </button>
+              </article>
+            </Fragment>
+          );
+        })}
+      </div>
+    );
+  }
+
   useEffect(() => {
     if (!minimumDate || date >= minimumDate) return;
     setDate(minimumDate);
   }, [date, minimumDate]);
+
+  useEffect(() => {
+    if (!environmentPanelLocked || !selectedSpaceId) return;
+    setSelectedSpaceId("");
+  }, [environmentPanelLocked, selectedSpaceId]);
 
   useEffect(() => {
     if (!currentTime) return;
@@ -598,74 +695,14 @@ export function NewRequestPageView({
                   </div>
                 </div>
 
-                <div className="space-choice-list compact">
-                  {rankedSpaces.length === 0 && (
-                    <div className="empty-state compact">Nenhum ambiente ativo cadastrado.</div>
-                  )}
-                  {rankedSpaces.some((space) => space.fullMatch) && (
-                    <div className="match-section-label">Atendem 100% do pedido</div>
-                  )}
-                  {rankedSpaces.map((space, index) => {
-                    const isSelected = selectedSpaceId === space.id;
-                    const isDisabled = Boolean(selectedSpaceId && !isSelected);
-                    const status = space.availabilityStatus;
-                    const previousSpace = rankedSpaces[index - 1];
-                    const startsPartialSection =
-                      !space.fullMatch && (!previousSpace || previousSpace.fullMatch);
-                    return (
-                      <Fragment key={space.id || entityName(space)}>
-                        {startsPartialSection && (
-                          <div className="match-section-label partial">
-                            Atendem parcialmente
-                          </div>
-                        )}
-                        <article
-                          className={`space-choice-card ${space.fullMatch ? "full-match" : "partial-match"} ${isSelected ? "selected" : ""} ${isDisabled ? "disabled" : ""}`}
-                          key={space.id || entityName(space)}
-                        >
-                          <div>
-                            <Building2 size={18} />
-                            <section>
-                              <strong>{entityName(space)}</strong>
-                              <span>{space.location || space.type || "Ambiente cadastrado"}</span>
-                              <div className="match-tags">
-                                <span>{space.score}% aderente</span>
-                                {space.fullMatch ? <span>100% do pedido</span> : null}
-                                {space.matchedResourceIds.length > 0 ? (
-                                  <span>{space.matchedResourceIds.length} recurso(s)</span>
-                                ) : null}
-                              </div>
-                              {!space.fullMatch && space.missingCriteria.length > 0 && (
-                                <small>Falta: {space.missingCriteria.join(", ")}</small>
-                              )}
-                            </section>
-                          </div>
-                          <div className="space-choice-meta">
-                            {space.capacity ? <span>{space.capacity} lugares</span> : null}
-                            <span className={`availability-dot ${status}`}>
-                              {status === "approved" ? "Reservado" : status === "pending" ? "Pendente" : "Livre"}
-                            </span>
-                          </div>
-                          <button
-                            className={isSelected ? "selected-action" : ""}
-                            disabled={isDisabled || (!isSelected && (status === "approved" || status === "pending"))}
-                            type="button"
-                            onClick={() => toggleSpace(space.id)}
-                          >
-                            {isSelected ? (
-                              <>
-                                <CheckCircle2 size={16} />
-                                Selecionado
-                              </>
-                            ) : (
-                              "Escolher"
-                            )}
-                          </button>
-                        </article>
-                      </Fragment>
-                    );
-                  })}
-                </div>
+                {!selectedSpaceId && (
+                  <div className="inline-warning">
+                    <Info size={16} />
+                    {environmentPanelLocked
+                      ? "Complete tipo, alunos estimados e recursos para habilitar os ambientes encontrados."
+                      : "Escolha um ambiente no painel Ambientes encontrados para liberar data, inicio e fim."}
+                  </div>
+                )}
               </div>
 
               <div className={`time-planner ${timeSelectionLocked ? "locked" : ""}`}>
@@ -766,18 +803,19 @@ export function NewRequestPageView({
                 </div>
 
                 <div className="slot-grid">
-                  {selectableTimeSlots.map((slot) => {
-                    const status = selectedSpaceId
+                  {timeSlots.map((slot) => {
+                    const canStartAtSlot = slot < lastOperationalTime;
+                    const status = selectedSpaceId && canStartAtSlot
                       ? rangeStatus(date, slot, addMinutesToTime(slot, durationMinutes), reservationRequests, selectedSpaceId, currentTime)
                       : "free";
                     const advanceBlocked = violatesMinimumAdvance(date, slot, currentTime, isAdmin);
-                    const durationBlocked = !isDurationWithinOperationalHours(slot, durationMinutes);
+                    const durationBlocked = !canStartAtSlot || !isDurationWithinOperationalHours(slot, durationMinutes);
                     const active = slot === startTime;
-                    const inRange = slot >= startTime && slot < endTime;
-                    const isRangeEnd = addMinutesToTime(slot, 60) === endTime;
+                    const inRange = slot >= startTime && slot <= endTime;
+                    const isRangeEnd = slot === endTime;
                     return (
                       <button
-                        className={`slot-chip ${advanceBlocked || timeSelectionLocked ? "locked" : status} ${active ? "active" : ""} ${inRange ? "in-range" : ""} ${isRangeEnd ? "range-end" : ""}`}
+                        className={`slot-chip ${advanceBlocked || timeSelectionLocked || !canStartAtSlot ? "locked" : status} ${active ? "active" : ""} ${inRange ? "in-range" : ""} ${isRangeEnd ? "range-end" : ""}`}
                         disabled={timeSelectionLocked || durationBlocked || advanceBlocked || status === "approved" || status === "pending"}
                         key={slot}
                         type="button"
@@ -804,7 +842,7 @@ export function NewRequestPageView({
                 {!selectedSpaceId && (
                   <div className="inline-warning">
                     <Info size={16} />
-                    Escolha um ambiente acima para liberar data, inicio e fim.
+                    Escolha um ambiente no painel Ambientes encontrados para liberar data, inicio e fim.
                   </div>
                 )}
               </div>
@@ -851,7 +889,11 @@ export function NewRequestPageView({
               Voltar
             </button>
             {step < 2 ? (
-              <button type="button" onClick={() => goToStep(Math.min(2, step + 1))}>
+              <button
+                disabled={cannotContinue}
+                type="button"
+                onClick={() => goToStep(Math.min(2, step + 1))}
+              >
                 Continuar
               </button>
             ) : (
@@ -863,10 +905,11 @@ export function NewRequestPageView({
           </div>
         </form>
 
-        <aside className="recommendation-panel">
+        <aside className={`recommendation-panel ${environmentPanelLocked ? "locked" : ""}`}>
           <span className="eyebrow">Recomendacao</span>
           <h2>Ambientes encontrados</h2>
           <p>O sistema sugere opcoes, mas o docente escolhe qual ambiente deseja solicitar.</p>
+          {renderSpaceChoices()}
           {selectedSpace ? (
             <div className="selected-space-summary">
               <CheckCircle2 size={18} />
