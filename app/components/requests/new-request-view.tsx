@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import {
   AlertTriangle,
   Building2,
@@ -39,6 +39,8 @@ type ReservationRequest = {
   date?: string | Date;
   startTime?: string;
   endTime?: string;
+  startAt?: string | Date;
+  endAt?: string | Date;
   startsAt?: string;
   endsAt?: string;
   spaceId?: string;
@@ -77,6 +79,18 @@ const timeSlots = [
   "21:00",
   "22:00",
 ];
+const durationOptions = [
+  { value: 60, label: "1 hora" },
+  { value: 90, label: "1h30" },
+  { value: 120, label: "2 horas" },
+  { value: 180, label: "3 horas" },
+  { value: 240, label: "4 horas" },
+];
+const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+const timePattern = /^\d{2}:\d{2}$/;
+const positiveIntegerPattern = /^[1-9]\d*$/;
+const purposePattern = /^[\s\S]{8,}$/;
+const approvalDeadlineMinutes = 120;
 
 function entityName(entity?: Entity | null, fallback = "Nao informado") {
   return entity?.name || entity?.code || entity?.email || fallback;
@@ -85,6 +99,11 @@ function entityName(entity?: Entity | null, fallback = "Nao informado") {
 function resourceKey(resource: ResourceEntity) {
   if ("resource" in resource) return resource.resource.id || resource.resource.name;
   return resource.id || resource.name;
+}
+
+function resourceName(resource: ResourceEntity) {
+  if ("resource" in resource) return entityName(resource.resource);
+  return entityName(resource);
 }
 
 function dateInputValue(value?: string | Date) {
@@ -134,6 +153,29 @@ function normalizeDate(value?: string | Date) {
   return dateInputValue(value);
 }
 
+function requestDate(request: ReservationRequest) {
+  return normalizeDate(request.date || request.startAt || request.startsAt);
+}
+
+function requestStartTime(request: ReservationRequest) {
+  const value = request.startTime || request.startAt || request.startsAt;
+  return normalizeTime(value instanceof Date ? value.toISOString() : value);
+}
+
+function requestEndTime(request: ReservationRequest) {
+  const value = request.endTime || request.endAt || request.endsAt;
+  return normalizeTime(value instanceof Date ? value.toISOString() : value);
+}
+
+function normalizeStatus(status?: string) {
+  if (status === "PENDENTE") return "PENDING";
+  if (status === "APROVADA") return "APPROVED";
+  if (status === "RECUSADA") return "REJECTED";
+  if (status === "CANCELADA") return "CANCELLED";
+  if (status === "EXPIRADA") return "EXPIRED";
+  return status || "PENDING";
+}
+
 function overlaps(startA: string, endA: string, startB: string, endB: string) {
   return startA < endB && startB < endA;
 }
@@ -145,11 +187,26 @@ function violatesMinimumAdvance(date: string, time: string, now: number, isAdmin
 
 function isExpired(request: ReservationRequest, now: number) {
   if (!now) return false;
-  if ((request.status || "PENDING") !== "PENDING") return false;
-  const date = normalizeDate(request.date);
-  const start = normalizeTime(request.startTime || request.startsAt);
+  if (normalizeStatus(request.status) !== "PENDING") return false;
+  const date = requestDate(request);
+  const start = requestStartTime(request);
   if (!date || !start) return false;
-  return combineDateTime(date, start).getTime() - now <= 60 * 60 * 1000;
+  return combineDateTime(date, start).getTime() - now <= approvalDeadlineMinutes * 60 * 1000;
+}
+
+function addMinutesToTime(time: string, minutesToAdd: number) {
+  const [hour, minute] = time.split(":").map(Number);
+  const total = hour * 60 + minute + minutesToAdd;
+  const nextHour = Math.floor(total / 60);
+  const nextMinute = total % 60;
+
+  return `${String(nextHour).padStart(2, "0")}:${String(nextMinute).padStart(2, "0")}`;
+}
+
+function rangeSlots(startTime: string, endTime: string) {
+  return timeSlots
+    .slice(0, -1)
+    .filter((slot) => slot >= startTime && slot < endTime);
 }
 
 function slotStatus(
@@ -161,16 +218,33 @@ function slotStatus(
 ): "free" | "pending" | "approved" {
   const slotEnd = timeSlots[timeSlots.indexOf(slot) + 1] || "23:00";
   const activeRequests = requests.filter((request) => {
-    const status = isExpired(request, now) ? "EXPIRED" : request.status;
+    const status = isExpired(request, now) ? "EXPIRED" : normalizeStatus(request.status);
     if (status !== "PENDING" && status !== "APPROVED") return false;
-    if (normalizeDate(request.date) !== date) return false;
+    if (requestDate(request) !== date) return false;
     const requestSpaceId = request.spaceId || request.space?.id || "";
     if (selectedSpaceId && requestSpaceId && requestSpaceId !== selectedSpaceId) return false;
-    return overlaps(slot, slotEnd, normalizeTime(request.startTime || request.startsAt), normalizeTime(request.endTime || request.endsAt));
+    return overlaps(slot, slotEnd, requestStartTime(request), requestEndTime(request));
   });
 
-  if (activeRequests.some((request) => request.status === "APPROVED")) return "approved";
-  if (activeRequests.some((request) => request.status === "PENDING")) return "pending";
+  if (activeRequests.some((request) => normalizeStatus(request.status) === "APPROVED")) return "approved";
+  if (activeRequests.some((request) => normalizeStatus(request.status) === "PENDING")) return "pending";
+  return "free";
+}
+
+function rangeStatus(
+  date: string,
+  startTime: string,
+  endTime: string,
+  requests: ReservationRequest[],
+  selectedSpaceId: string,
+  now: number,
+) {
+  const statuses = rangeSlots(startTime, endTime).map((slot) =>
+    slotStatus(slot, date, requests, selectedSpaceId, now),
+  );
+
+  if (statuses.includes("approved")) return "approved";
+  if (statuses.includes("pending")) return "pending";
   return "free";
 }
 
@@ -194,11 +268,14 @@ export function NewRequestPageView({
   const [date, setDate] = useState(dateInputValue(initialDate));
   const [startTime, setStartTime] = useState("19:00");
   const [endTime, setEndTime] = useState("21:00");
+  const [durationMinutes, setDurationMinutes] = useState(120);
   const [spaceType, setSpaceType] = useState("Laboratorio");
+  const [estimatedStudents, setEstimatedStudents] = useState("");
   const [selectedResourceIds, setSelectedResourceIds] = useState<string[]>([]);
   const [selectedSpaceId, setSelectedSpaceId] = useState("");
   const [purpose, setPurpose] = useState("");
   const [currentTime, setCurrentTime] = useState(0);
+  const [submittedStepAttempt, setSubmittedStepAttempt] = useState<number | null>(null);
 
   useEffect(() => {
     setCurrentTime(Date.now());
@@ -208,29 +285,99 @@ export function NewRequestPageView({
   const minimumAdvanceLabel = formatMinimumAdvanceLabel(currentTime);
   const violatesAdvanceRule = violatesMinimumAdvance(date, startTime, currentTime, isAdmin);
   const invalidTimeRange = startTime >= endTime;
+  const studentsNumber = Number(estimatedStudents);
   const selectedSpace = spaces.find((space) => space.id === selectedSpaceId);
 
   const visibleDisciplines = disciplines.filter((discipline) => !discipline.courseId || discipline.courseId === courseId);
   const visibleClassGroups = classGroups.filter((group) => !group.courseId || group.courseId === courseId);
-  const recommendedSpaces = spaces.filter((space) => {
-    if (space.active === false) return false;
-    const matchesType = !spaceType || (space.type || "").toLowerCase() === spaceType.toLowerCase();
-    const spaceResourceNames = new Set((space.resources || []).map(resourceKey));
-    const hasResources = selectedResourceIds.every((id) => spaceResourceNames.has(id));
-    return matchesType && hasResources;
-  });
-  const spacesToShow = recommendedSpaces.length > 0 ? recommendedSpaces : spaces.filter((space) => space.active !== false);
-  const selectedSlotStatus = slotStatus(startTime, date, reservationRequests, selectedSpaceId, currentTime);
+  const rankedSpaces = spaces
+    .filter((space) => space.active !== false)
+    .map((space) => {
+      const status = rangeStatus(date, startTime, endTime, reservationRequests, space.id || "", currentTime);
+      const matchesType = !spaceType || (space.type || "").toLowerCase() === spaceType.toLowerCase();
+      const hasCapacity = !studentsNumber || !space.capacity || space.capacity >= studentsNumber;
+      const spaceResourceIds = new Set((space.resources || []).map(resourceKey));
+      const matchedResourceIds = selectedResourceIds.filter((id) => spaceResourceIds.has(id));
+      const missingResourceNames = selectedResourceIds
+        .filter((id) => !spaceResourceIds.has(id))
+        .map((id) => resources.find((resource) => resource.id === id)?.name || id);
+      const resourceScore =
+        selectedResourceIds.length === 0
+          ? 1
+          : matchedResourceIds.length / selectedResourceIds.length;
+      const score =
+        (matchesType ? 30 : 0) +
+        (hasCapacity ? 30 : 0) +
+        Math.round(resourceScore * 40);
+      const fullMatch =
+        status === "free" &&
+        matchesType &&
+        hasCapacity &&
+        matchedResourceIds.length === selectedResourceIds.length;
+      const missingCriteria = [
+        ...(!matchesType ? ["tipo de ambiente"] : []),
+        ...(!hasCapacity ? ["capacidade"] : []),
+        ...(status !== "free" ? ["disponibilidade no horario"] : []),
+        ...missingResourceNames,
+      ];
+
+      return {
+        ...space,
+        availabilityStatus: status,
+        fullMatch,
+        matchedResourceIds,
+        missingCriteria,
+        score,
+      };
+    })
+    .sort((a, b) => {
+      if (a.availabilityStatus !== b.availabilityStatus) {
+        return a.availabilityStatus === "free" ? -1 : 1;
+      }
+      if (a.fullMatch !== b.fullMatch) return a.fullMatch ? -1 : 1;
+      return b.score - a.score || entityName(a).localeCompare(entityName(b));
+    });
+  const selectedSlotStatus = selectedSpaceId
+    ? rangeStatus(date, startTime, endTime, reservationRequests, selectedSpaceId, currentTime)
+    : "free";
+  const stepErrors = [
+    [
+      !courseId ? "Selecione um curso." : "",
+      !disciplineId ? "Selecione uma disciplina." : "",
+      !classGroupId ? "Selecione uma turma." : "",
+    ].filter(Boolean),
+    [
+      !datePattern.test(date) ? "Informe uma data valida." : "",
+      !timePattern.test(startTime) || !timePattern.test(endTime)
+        ? "Informe inicio e fim validos."
+        : "",
+      invalidTimeRange ? "O horario final precisa ser depois do inicio." : "",
+      !positiveIntegerPattern.test(estimatedStudents)
+        ? "Informe a quantidade estimada de alunos."
+        : "",
+      !purposePattern.test(purpose.trim())
+        ? "Informe a finalidade com pelo menos 8 caracteres."
+        : "",
+      violatesAdvanceRule
+        ? "Docentes precisam solicitar reservas com pelo menos 24 horas de antecedencia."
+        : "",
+    ].filter(Boolean),
+    [
+      !selectedSpaceId ? "Escolha um ambiente." : "",
+      selectedSlotStatus === "approved" || selectedSlotStatus === "pending"
+        ? "O ambiente escolhido nao esta livre durante todo o periodo."
+        : "",
+    ].filter(Boolean),
+    [],
+  ];
+  const canOpenStep = (targetStep: number) =>
+    stepErrors.slice(0, targetStep).every((errors) => errors.length === 0);
   const cannotSubmit =
-    !courseId ||
-    !disciplineId ||
-    !classGroupId ||
-    !selectedSpaceId ||
-    !purpose.trim() ||
-    violatesAdvanceRule ||
-    invalidTimeRange ||
-    selectedSlotStatus === "approved" ||
-    selectedSlotStatus === "pending";
+    stepErrors.slice(0, 3).some((errors) => errors.length > 0);
+
+  function showStepErrors(stepIndex: number) {
+    return submittedStepAttempt === stepIndex && stepErrors[stepIndex].length > 0;
+  }
 
   function toggleResource(resourceId: string) {
     setSelectedResourceIds((current) =>
@@ -243,6 +390,36 @@ export function NewRequestPageView({
     setSelectedSpaceId((current) => (current === spaceId ? "" : spaceId));
   }
 
+  function setStartAndDuration(nextStartTime: string, nextDuration = durationMinutes) {
+    setStartTime(nextStartTime);
+    setEndTime(addMinutesToTime(nextStartTime, nextDuration));
+  }
+
+  function changeDuration(nextDuration: number) {
+    setDurationMinutes(nextDuration);
+    setEndTime(addMinutesToTime(startTime, nextDuration));
+  }
+
+  function goToStep(nextStep: number) {
+    if (nextStep <= step) {
+      setStep(nextStep);
+      return;
+    }
+
+    const firstInvalidStep = stepErrors.findIndex(
+      (errors, index) => index < nextStep && errors.length > 0,
+    );
+
+    if (firstInvalidStep >= 0) {
+      setSubmittedStepAttempt(firstInvalidStep);
+      setStep(firstInvalidStep);
+      return;
+    }
+
+    setSubmittedStepAttempt(null);
+    setStep(nextStep);
+  }
+
   useEffect(() => {
     if (!minimumDate || date >= minimumDate) return;
     setDate(minimumDate);
@@ -251,7 +428,9 @@ export function NewRequestPageView({
   useEffect(() => {
     if (!currentTime) return;
 
-    const currentStatus = slotStatus(startTime, date, reservationRequests, selectedSpaceId, currentTime);
+    const currentStatus = selectedSpaceId
+      ? rangeStatus(date, startTime, endTime, reservationRequests, selectedSpaceId, currentTime)
+      : "free";
     const currentBlocked =
       violatesMinimumAdvance(date, startTime, currentTime, isAdmin) ||
       currentStatus === "approved" ||
@@ -260,16 +439,16 @@ export function NewRequestPageView({
     if (!currentBlocked && startTime < endTime) return;
 
     const nextSlot = timeSlots.slice(0, -1).find((slot) => {
-      const status = slotStatus(slot, date, reservationRequests, selectedSpaceId, currentTime);
+      const status = selectedSpaceId
+        ? rangeStatus(date, slot, addMinutesToTime(slot, durationMinutes), reservationRequests, selectedSpaceId, currentTime)
+        : slotStatus(slot, date, reservationRequests, selectedSpaceId, currentTime);
       return !violatesMinimumAdvance(date, slot, currentTime, isAdmin) && status !== "approved" && status !== "pending";
     });
 
     if (!nextSlot) return;
 
-    const nextIndex = timeSlots.indexOf(nextSlot);
-    setStartTime(nextSlot);
-    setEndTime(timeSlots[nextIndex + 1] || "23:00");
-  }, [currentTime, date, endTime, isAdmin, reservationRequests, selectedSpaceId, startTime]);
+    setStartAndDuration(nextSlot);
+  }, [currentTime, date, durationMinutes, endTime, isAdmin, reservationRequests, selectedSpaceId, startTime]);
 
   return (
     <section className="request-page">
@@ -284,10 +463,11 @@ export function NewRequestPageView({
           <div className="step-tabs">
             {stepLabels.map((label, index) => (
               <button
-                className={step === index ? "active" : ""}
+                className={`${step === index ? "active" : ""} ${!canOpenStep(index) ? "blocked" : ""}`}
+                disabled={!canOpenStep(index)}
                 key={label}
                 type="button"
-                onClick={() => setStep(index)}
+                onClick={() => goToStep(index)}
               >
                 <span>{index + 1}</span>
                 {label}
@@ -295,6 +475,7 @@ export function NewRequestPageView({
             ))}
           </div>
 
+          <input type="hidden" name="requesterId" value={requester?.id || ""} />
           <input type="hidden" name="courseId" value={courseId} />
           <input type="hidden" name="disciplineId" value={disciplineId} />
           <input type="hidden" name="classGroupId" value={classGroupId} />
@@ -302,6 +483,7 @@ export function NewRequestPageView({
           <input type="hidden" name="date" value={date} />
           <input type="hidden" name="startTime" value={startTime} />
           <input type="hidden" name="endTime" value={endTime} />
+          <input type="hidden" name="estimatedStudents" value={estimatedStudents} />
           <input type="hidden" name="type" value={spaceType} />
           <input type="hidden" name="purpose" value={purpose} />
           <input type="hidden" name="resourceIds" value={selectedResourceIds.join(",")} />
@@ -339,6 +521,12 @@ export function NewRequestPageView({
                   ))}
                 </select>
               </label>
+              {showStepErrors(0) && (
+                <div className="validation-alert">
+                  <AlertTriangle size={16} />
+                  <span>{stepErrors[0].join(" ")}</span>
+                </div>
+              )}
             </div>
           )}
 
@@ -382,18 +570,23 @@ export function NewRequestPageView({
                   <label>
                     <Clock3 size={16} />
                     Inicio
-                    <select value={startTime} onChange={(event) => setStartTime(event.target.value)}>
+                    <select value={startTime} onChange={(event) => setStartAndDuration(event.target.value)}>
                       {timeSlots.slice(0, -1).map((slot) => {
-                        const status = slotStatus(slot, date, reservationRequests, selectedSpaceId, currentTime);
+                        const status = selectedSpaceId
+                          ? rangeStatus(date, slot, addMinutesToTime(slot, durationMinutes), reservationRequests, selectedSpaceId, currentTime)
+                          : slotStatus(slot, date, reservationRequests, selectedSpaceId, currentTime);
                         const advanceBlocked = violatesMinimumAdvance(date, slot, currentTime, isAdmin);
+                        const durationBlocked = addMinutesToTime(slot, durationMinutes) > timeSlots[timeSlots.length - 1];
                         return (
                           <option
-                            disabled={advanceBlocked || status === "approved" || status === "pending"}
+                            disabled={durationBlocked || advanceBlocked || status === "approved" || status === "pending"}
                             key={slot}
                             value={slot}
                           >
                             {slot}{" "}
-                            {advanceBlocked
+                            {durationBlocked
+                              ? "- duracao excede expediente"
+                              : advanceBlocked
                               ? "- menos de 24h"
                               : status === "pending"
                                 ? "- pendente"
@@ -407,32 +600,44 @@ export function NewRequestPageView({
                   </label>
                   <label>
                     <Clock3 size={16} />
-                    Fim
-                    <select value={endTime} onChange={(event) => setEndTime(event.target.value)}>
-                      {timeSlots.slice(1).map((slot) => (
-                        <option disabled={slot <= startTime} key={slot} value={slot}>
-                          {slot}
+                    Duracao
+                    <select
+                      value={durationMinutes}
+                      onChange={(event) => changeDuration(Number(event.target.value))}
+                    >
+                      {durationOptions.map((option) => (
+                        <option
+                          disabled={addMinutesToTime(startTime, option.value) > timeSlots[timeSlots.length - 1]}
+                          key={option.value}
+                          value={option.value}
+                        >
+                          {option.label}
                         </option>
                       ))}
                     </select>
+                  </label>
+                  <label>
+                    <Clock3 size={16} />
+                    Fim
+                    <input readOnly value={endTime} />
                   </label>
                 </div>
 
                 <div className="slot-grid">
                   {timeSlots.slice(0, -1).map((slot) => {
-                    const status = slotStatus(slot, date, reservationRequests, selectedSpaceId, currentTime);
+                    const status = selectedSpaceId
+                      ? rangeStatus(date, slot, addMinutesToTime(slot, durationMinutes), reservationRequests, selectedSpaceId, currentTime)
+                      : slotStatus(slot, date, reservationRequests, selectedSpaceId, currentTime);
                     const advanceBlocked = violatesMinimumAdvance(date, slot, currentTime, isAdmin);
+                    const durationBlocked = addMinutesToTime(slot, durationMinutes) > timeSlots[timeSlots.length - 1];
                     const active = slot === startTime;
                     return (
                       <button
                         className={`slot-chip ${advanceBlocked ? "locked" : status} ${active ? "active" : ""}`}
-                        disabled={advanceBlocked || status === "approved" || status === "pending"}
+                        disabled={durationBlocked || advanceBlocked || status === "approved" || status === "pending"}
                         key={slot}
                         type="button"
-                        onClick={() => {
-                          setStartTime(slot);
-                          setEndTime(timeSlots[timeSlots.indexOf(slot) + 1] || "23:00");
-                        }}
+                        onClick={() => setStartAndDuration(slot)}
                       >
                         {slot}
                       </button>
@@ -482,50 +687,111 @@ export function NewRequestPageView({
                   })}
                 </div>
               </div>
+              <div className="form-grid">
+                <label className={!positiveIntegerPattern.test(estimatedStudents) && showStepErrors(1) ? "field-invalid" : ""}>
+                  Alunos estimados
+                  <input
+                    inputMode="numeric"
+                    pattern={positiveIntegerPattern.source}
+                    placeholder="Ex.: 32"
+                    value={estimatedStudents}
+                    onChange={(event) => setEstimatedStudents(event.target.value.replace(/\D/g, ""))}
+                  />
+                </label>
+              </div>
               <label className="full-field">
                 Finalidade
-                <textarea value={purpose} onChange={(event) => setPurpose(event.target.value)} name="objective" />
+                <textarea
+                  className={!purposePattern.test(purpose.trim()) && showStepErrors(1) ? "field-invalid" : ""}
+                  value={purpose}
+                  onChange={(event) => setPurpose(event.target.value)}
+                  name="objective"
+                  placeholder="Descreva a finalidade da reserva"
+                />
               </label>
+              {showStepErrors(1) && (
+                <div className="validation-alert">
+                  <AlertTriangle size={16} />
+                  <span>{stepErrors[1].join(" ")}</span>
+                </div>
+              )}
             </div>
           )}
 
           {step === 2 && (
             <div className="space-choice-list compact">
-              {spacesToShow.map((space) => {
+              {rankedSpaces.length === 0 && (
+                <div className="empty-state compact">Nenhum ambiente ativo cadastrado.</div>
+              )}
+              {rankedSpaces.some((space) => space.fullMatch) && (
+                <div className="match-section-label">Atendem 100% do pedido</div>
+              )}
+              {rankedSpaces.map((space, index) => {
                 const isSelected = selectedSpaceId === space.id;
                 const isDisabled = Boolean(selectedSpaceId && !isSelected);
-                const status = slotStatus(startTime, date, reservationRequests, space.id || "", currentTime);
+                const status = space.availabilityStatus;
+                const previousSpace = rankedSpaces[index - 1];
+                const startsPartialSection =
+                  !space.fullMatch && (!previousSpace || previousSpace.fullMatch);
                 return (
-                  <article className={`space-choice-card ${isSelected ? "selected" : ""} ${isDisabled ? "disabled" : ""}`} key={space.id || entityName(space)}>
-                    <div>
-                      <Building2 size={18} />
-                      <section>
-                        <strong>{entityName(space)}</strong>
-                        <span>{space.location || space.type || "Ambiente cadastrado"}</span>
-                      </section>
-                    </div>
-                    <div className="space-choice-meta">
-                      {space.capacity ? <span>{space.capacity} lugares</span> : null}
-                      <span className={`availability-dot ${status}`}>{status === "approved" ? "Reservado" : status === "pending" ? "Pendente" : "Livre"}</span>
-                    </div>
-                    <button
-                      className={isSelected ? "selected-action" : ""}
-                      disabled={isDisabled || status === "approved" || status === "pending"}
-                      type="button"
-                      onClick={() => toggleSpace(space.id)}
+                  <Fragment key={space.id || entityName(space)}>
+                    {startsPartialSection && (
+                      <div className="match-section-label partial">
+                        Atendem parcialmente
+                      </div>
+                    )}
+                    <article
+                      className={`space-choice-card ${space.fullMatch ? "full-match" : "partial-match"} ${isSelected ? "selected" : ""} ${isDisabled ? "disabled" : ""}`}
+                      key={space.id || entityName(space)}
                     >
-                      {isSelected ? (
-                        <>
-                          <CheckCircle2 size={16} />
-                          Selecionado
-                        </>
-                      ) : (
-                        "Escolher"
-                      )}
-                    </button>
-                  </article>
+                      <div>
+                        <Building2 size={18} />
+                        <section>
+                          <strong>{entityName(space)}</strong>
+                          <span>{space.location || space.type || "Ambiente cadastrado"}</span>
+                          <div className="match-tags">
+                            <span>{space.score}% aderente</span>
+                            {space.fullMatch ? <span>100% do pedido</span> : null}
+                            {space.matchedResourceIds.length > 0 ? (
+                              <span>{space.matchedResourceIds.length} recurso(s)</span>
+                            ) : null}
+                          </div>
+                          {!space.fullMatch && space.missingCriteria.length > 0 && (
+                            <small>Falta: {space.missingCriteria.join(", ")}</small>
+                          )}
+                        </section>
+                      </div>
+                      <div className="space-choice-meta">
+                        {space.capacity ? <span>{space.capacity} lugares</span> : null}
+                        <span className={`availability-dot ${status}`}>
+                          {status === "approved" ? "Reservado" : status === "pending" ? "Pendente" : "Livre"}
+                        </span>
+                      </div>
+                      <button
+                        className={isSelected ? "selected-action" : ""}
+                        disabled={isDisabled || status === "approved" || status === "pending"}
+                        type="button"
+                        onClick={() => toggleSpace(space.id)}
+                      >
+                        {isSelected ? (
+                          <>
+                            <CheckCircle2 size={16} />
+                            Selecionado
+                          </>
+                        ) : (
+                          "Escolher"
+                        )}
+                      </button>
+                    </article>
+                  </Fragment>
                 );
               })}
+              {showStepErrors(2) && (
+                <div className="validation-alert">
+                  <AlertTriangle size={16} />
+                  <span>{stepErrors[2].join(" ")}</span>
+                </div>
+              )}
             </div>
           )}
 
@@ -548,11 +814,11 @@ export function NewRequestPageView({
           )}
 
           <div className="wizard-actions">
-            <button disabled={step === 0} type="button" onClick={() => setStep((current) => Math.max(0, current - 1))}>
+            <button disabled={step === 0} type="button" onClick={() => goToStep(Math.max(0, step - 1))}>
               Voltar
             </button>
             {step < 3 ? (
-              <button type="button" onClick={() => setStep((current) => Math.min(3, current + 1))}>
+              <button type="button" onClick={() => goToStep(Math.min(3, step + 1))}>
                 Continuar
               </button>
             ) : (

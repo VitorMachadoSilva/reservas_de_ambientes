@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { approveReservationRequest, expireStaleReservationRequests, rejectReservationRequest } from "../../actions";
 import { PendingButton } from "../pending-button";
+import { PaginationControls } from "../ui/pagination-controls";
 
 type ApprovalStatus = "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED" | "EXPIRED";
 
@@ -32,6 +33,8 @@ type ApprovalRequest = {
   date?: string | Date;
   startTime?: string;
   endTime?: string;
+  startAt?: string | Date;
+  endAt?: string | Date;
   startsAt?: string;
   endsAt?: string;
   purpose?: string;
@@ -95,6 +98,8 @@ const statusTone: Record<string, string> = {
   EXPIRED: "danger",
   EXPIRADA: "danger",
 };
+const approvalDeadlineMinutes = 120;
+const approvalListPageSize = 6;
 
 function entityName(entity?: RelatedEntity | null, fallback = "Nao informado") {
   return entity?.name || entity?.code || entity?.email || fallback;
@@ -128,16 +133,36 @@ function formatDateTime(value?: string | Date) {
   }).format(date);
 }
 
-function formatTime(value?: string) {
+function formatTime(value?: string | Date) {
   if (!value) return "--:--";
+  if (value instanceof Date) return value.toISOString().split("T")[1]?.slice(0, 5) || "--:--";
   if (value.includes("T")) return value.split("T")[1]?.slice(0, 5) || "--:--";
   return value.slice(0, 5);
 }
 
+function normalizeStatus(status?: string) {
+  if (status === "PENDENTE") return "PENDING";
+  if (status === "APROVADA") return "APPROVED";
+  if (status === "RECUSADA") return "REJECTED";
+  if (status === "CANCELADA") return "CANCELLED";
+  if (status === "EXPIRADA") return "EXPIRED";
+  return status || "PENDING";
+}
+
+function requestDateValue(request: ApprovalRequest) {
+  return request.date || request.startAt || request.startsAt;
+}
+
+function requestStartValue(request: ApprovalRequest) {
+  return request.startTime || request.startAt || request.startsAt;
+}
+
+function requestEndValue(request: ApprovalRequest) {
+  return request.endTime || request.endAt || request.endsAt;
+}
+
 function requestTime(request: ApprovalRequest) {
-  const start = request.startTime || request.startsAt;
-  const end = request.endTime || request.endsAt;
-  return `${formatTime(start)} - ${formatTime(end)}`;
+  return `${formatTime(requestStartValue(request))} - ${formatTime(requestEndValue(request))}`;
 }
 
 function requestText(request: ApprovalRequest) {
@@ -148,7 +173,7 @@ function requestText(request: ApprovalRequest) {
     entityName(request.space, ""),
     entityName(request.requester, ""),
     request.purpose || request.objective || "",
-    formatDate(request.date),
+    formatDate(requestDateValue(request)),
   ]
     .join(" ")
     .toLowerCase();
@@ -173,33 +198,74 @@ function normalizeTime(value?: string) {
 
 function isExpiredRequest(request: ApprovalRequest, now: number) {
   if (!now) return false;
-  if ((request.status || "PENDING") !== "PENDING") return false;
-  const date = dateInputValue(request.date);
-  const start = normalizeTime(request.startTime || request.startsAt);
+  if (normalizeStatus(request.status) !== "PENDING") return false;
+  const date = dateInputValue(requestDateValue(request));
+  const start = normalizeTime(formatTime(requestStartValue(request)));
   if (!date || !start) return false;
 
-  return new Date(`${date}T${start}:00`).getTime() - now <= 60 * 60 * 1000;
+  return new Date(`${date}T${start}:00`).getTime() - now <= approvalDeadlineMinutes * 60 * 1000;
 }
 
 function effectiveRequestStatus(request: ApprovalRequest, now: number) {
-  const status = request.status || "PENDING";
-  if (status === "EXPIRADA") return "EXPIRED";
+  const status = normalizeStatus(request.status);
   return isExpiredRequest(request, now) ? "EXPIRED" : status;
 }
 
 function minutesUntilStart(request: ApprovalRequest, now: number) {
   if (!now) return null;
-  const date = dateInputValue(request.date);
-  const start = normalizeTime(request.startTime || request.startsAt);
+  const date = dateInputValue(requestDateValue(request));
+  const start = normalizeTime(formatTime(requestStartValue(request)));
   if (!date || !start) return null;
 
   return Math.floor((new Date(`${date}T${start}:00`).getTime() - now) / 60000);
 }
 
+function requestStartTimestamp(request: ApprovalRequest) {
+  const date = dateInputValue(requestDateValue(request));
+  const start = normalizeTime(formatTime(requestStartValue(request)));
+  if (!date || !start) return Number.POSITIVE_INFINITY;
+
+  const timestamp = new Date(`${date}T${start}:00`).getTime();
+  return Number.isNaN(timestamp) ? Number.POSITIVE_INFINITY : timestamp;
+}
+
+function requestUpdatedTimestamp(request: ApprovalRequest) {
+  const value = request.updatedAt || request.createdAt || requestDateValue(request);
+  if (!value) return 0;
+
+  const timestamp = new Date(value).getTime();
+  return Number.isNaN(timestamp) ? 0 : timestamp;
+}
+
+function approvalDeadlineTimestamp(request: ApprovalRequest) {
+  const startTimestamp = requestStartTimestamp(request);
+  if (!Number.isFinite(startTimestamp)) return Number.POSITIVE_INFINITY;
+
+  return startTimestamp - approvalDeadlineMinutes * 60 * 1000;
+}
+
+function compareApprovalPriority(a: ApprovalRequest, b: ApprovalRequest, now: number) {
+  const statusA = effectiveRequestStatus(a, now);
+  const statusB = effectiveRequestStatus(b, now);
+
+  if (statusA === "PENDING" && statusB === "PENDING") {
+    return approvalDeadlineTimestamp(a) - approvalDeadlineTimestamp(b);
+  }
+
+  if (statusA === "EXPIRED" && statusB === "EXPIRED") {
+    return requestStartTimestamp(a) - requestStartTimestamp(b);
+  }
+
+  if (statusA === "PENDING") return -1;
+  if (statusB === "PENDING") return 1;
+
+  return requestUpdatedTimestamp(b) - requestUpdatedTimestamp(a);
+}
+
 function approvalDeadlineLabel(request: ApprovalRequest, now: number) {
   const minutes = minutesUntilStart(request, now);
   if (minutes === null) return "Prazo nao informado";
-  const minutesToDeadline = minutes - 60;
+  const minutesToDeadline = minutes - approvalDeadlineMinutes;
   if (minutesToDeadline <= 0) return "Prazo expirado";
 
   const hours = Math.floor(minutesToDeadline / 60);
@@ -218,7 +284,7 @@ function buildRequestHistory(request: ApprovalRequest, now: number) {
         request.space,
         "o ambiente"
       )}.`,
-      date: formatDateTime(request.createdAt || request.date),
+      date: formatDateTime(request.createdAt || requestDateValue(request)),
       tone: "neutral",
     },
   ];
@@ -227,7 +293,7 @@ function buildRequestHistory(request: ApprovalRequest, now: number) {
     history.push({
       title: "Horario bloqueado provisoriamente",
       description: "A reserva aguarda avaliacao e impede novas solicitacoes para o mesmo horario.",
-      date: formatDateTime(request.updatedAt || request.createdAt || request.date),
+      date: formatDateTime(request.updatedAt || request.createdAt || requestDateValue(request)),
       tone: "warning",
     });
   }
@@ -235,8 +301,8 @@ function buildRequestHistory(request: ApprovalRequest, now: number) {
   if (status === "EXPIRED") {
     history.push({
       title: "Solicitacao expirada",
-      description: "Ninguem aprovou a solicitacao ate 1 hora antes do inicio. O horario foi liberado.",
-      date: formatDateTime(request.updatedAt || request.createdAt || request.date),
+      description: "Ninguem aprovou a solicitacao ate 2 horas antes do inicio. O horario foi liberado.",
+      date: formatDateTime(request.updatedAt || request.createdAt || requestDateValue(request)),
       tone: "danger",
     });
   }
@@ -286,6 +352,7 @@ export function ApprovalsPageView({
   allCourses = [],
   spaces = [],
   allSpaces = [],
+  currentUser,
 }: ApprovalsViewProps) {
   const allRequests = requests ?? reservationRequests ?? approvalRequests ?? pendingRequests ?? [];
   const router = useRouter();
@@ -295,6 +362,7 @@ export function ApprovalsPageView({
   const [spaceFilter, setSpaceFilter] = useState("ALL");
   const [dateFilter, setDateFilter] = useState("");
   const [selectedId, setSelectedId] = useState(allRequests[0]?.id ?? "");
+  const [approvalPage, setApprovalPage] = useState(1);
   const [rejectReasons, setRejectReasons] = useState<Record<string, string>>({});
   const [approvalNotes, setApprovalNotes] = useState<Record<string, string>>({});
   const [currentTime, setCurrentTime] = useState(0);
@@ -310,6 +378,10 @@ export function ApprovalsPageView({
       })
       .catch(() => undefined);
   }, [router]);
+
+  useEffect(() => {
+    setApprovalPage(1);
+  }, [activeStatus, courseFilter, dateFilter, search, spaceFilter]);
 
   const statusCounts = useMemo(() => {
     return allRequests.reduce<Record<string, number>>((acc, request) => {
@@ -354,14 +426,22 @@ export function ApprovalsPageView({
       const requestSpaceId = request.space?.id || entityName(request.space, "");
       const matchesCourse = courseFilter === "ALL" || requestCourseId === courseFilter;
       const matchesSpace = spaceFilter === "ALL" || requestSpaceId === spaceFilter;
-      const matchesDate = !dateFilter || dateInputValue(request.date) === dateFilter;
+      const matchesDate = !dateFilter || dateInputValue(requestDateValue(request)) === dateFilter;
 
       return matchesStatus && matchesSearch && matchesCourse && matchesSpace && matchesDate;
     });
   }, [activeStatus, allRequests, courseFilter, currentTime, dateFilter, search, spaceFilter]);
 
+  const sortedRequests = useMemo(() => {
+    return [...filteredRequests].sort((a, b) => compareApprovalPriority(a, b, currentTime));
+  }, [currentTime, filteredRequests]);
+
+  const visibleRequests = sortedRequests.slice(
+    (approvalPage - 1) * approvalListPageSize,
+    approvalPage * approvalListPageSize,
+  );
   const selectedRequest =
-    filteredRequests.find((request) => request.id === selectedId) ?? filteredRequests[0] ?? null;
+    sortedRequests.find((request) => request.id === selectedId) ?? sortedRequests[0] ?? null;
 
   const pendingBlockingCount = statusCounts.PENDING || 0;
   const selectedRejectReason = selectedRequest ? rejectReasons[selectedRequest.id] || "" : "";
@@ -445,16 +525,20 @@ export function ApprovalsPageView({
       <div className="approval-workspace">
         <div className="approval-list">
           <div className="approval-list-header">
-            <strong>{filteredRequests.length} solicitacao(oes)</strong>
-            <span>{statusLabels[activeStatus]}</span>
+            <strong>{sortedRequests.length} solicitacao(oes)</strong>
+            <span>
+              {activeStatus === "PENDING"
+                ? "Menor prazo primeiro"
+                : statusLabels[activeStatus]}
+            </span>
           </div>
 
-          {filteredRequests.length === 0 ? (
+          {sortedRequests.length === 0 ? (
             <div className="empty-state compact">
               Nenhuma solicitacao encontrada com os filtros atuais.
             </div>
           ) : (
-            filteredRequests.map((request) => {
+            visibleRequests.map((request) => {
               const status = effectiveRequestStatus(request, currentTime);
               const isSelected = selectedRequest?.id === request.id;
 
@@ -472,7 +556,7 @@ export function ApprovalsPageView({
                   <div className="approval-card-meta">
                     <span>
                       <CalendarDays size={14} />
-                      {formatDate(request.date)}
+                      {formatDate(requestDateValue(request))}
                     </span>
                     <span>
                       <Clock3 size={14} />
@@ -494,6 +578,13 @@ export function ApprovalsPageView({
               );
             })
           )}
+
+          <PaginationControls
+            onChange={setApprovalPage}
+            page={approvalPage}
+            pageSize={approvalListPageSize}
+            total={sortedRequests.length}
+          />
         </div>
 
         <aside className="approval-detail-panel">
@@ -524,7 +615,7 @@ export function ApprovalsPageView({
                   <div>
                     <strong>{approvalDeadlineLabel(selectedRequest, currentTime)}</strong>
                     <span>
-                      Solicitacoes pendentes expiram se nao forem aprovadas ate 1 hora antes do inicio.
+                      Solicitacoes pendentes expiram se nao forem aprovadas ate 2 horas antes do inicio.
                     </span>
                   </div>
                 </div>
@@ -539,7 +630,7 @@ export function ApprovalsPageView({
                 <div>
                   <CalendarDays size={16} />
                   <span>Data</span>
-                  <strong>{formatDate(selectedRequest.date)}</strong>
+                  <strong>{formatDate(requestDateValue(selectedRequest))}</strong>
                 </div>
                 <div>
                   <Clock3 size={16} />
@@ -607,6 +698,7 @@ export function ApprovalsPageView({
                     <input type="hidden" name="requestId" value={selectedRequest.id} />
                     <input type="hidden" name="reservationId" value={selectedRequest.id} />
                     <input type="hidden" name="reservationRequestId" value={selectedRequest.id} />
+                    <input type="hidden" name="decidedById" value={currentUser?.id || ""} />
                     <textarea
                       value={selectedApprovalNote}
                       onChange={(event) =>
@@ -631,6 +723,7 @@ export function ApprovalsPageView({
                     <input type="hidden" name="requestId" value={selectedRequest.id} />
                     <input type="hidden" name="reservationId" value={selectedRequest.id} />
                     <input type="hidden" name="reservationRequestId" value={selectedRequest.id} />
+                    <input type="hidden" name="decidedById" value={currentUser?.id || ""} />
                     <textarea
                       required
                       minLength={8}
@@ -644,6 +737,7 @@ export function ApprovalsPageView({
                       name="reason"
                       placeholder="Motivo obrigatorio da recusa"
                     />
+                    <input type="hidden" name="decisionNote" value={selectedRejectReason} />
                     <input type="hidden" name="rejectionReason" value={selectedRejectReason} />
                     <input type="hidden" name="observation" value={selectedRejectReason} />
                     <input type="hidden" name="note" value={selectedRejectReason} />

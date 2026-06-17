@@ -60,6 +60,14 @@ export function getDailyOperationalStatus(
     };
   }
 
+  if (request.status === "EXPIRADA") {
+    return {
+      key: "EXPIRADA",
+      label: "Expirada",
+      className: "expirada",
+    };
+  }
+
   const startMinutes = minutesFromDateTime(request.startAt);
   const endMinutes = minutesFromDateTime(request.endAt);
 

@@ -20,6 +20,8 @@ type ReservationRequest = {
   date?: string | Date;
   startTime?: string;
   endTime?: string;
+  startAt?: string | Date;
+  endAt?: string | Date;
   startsAt?: string;
   endsAt?: string;
   purpose?: string;
@@ -27,6 +29,7 @@ type ReservationRequest = {
   reason?: string | null;
   rejectionReason?: string | null;
   cancelReason?: string | null;
+  decisionNote?: string | null;
   observation?: string | null;
   updatedAt?: string | Date;
   space?: Entity | null;
@@ -46,21 +49,30 @@ const PAGE_SIZE = 5;
 
 const statusLabel: Record<string, string> = {
   PENDING: "Pendente",
+  PENDENTE: "Pendente",
   APPROVED: "Aprovada",
+  APROVADA: "Aprovada",
   REJECTED: "Recusada",
+  RECUSADA: "Recusada",
   CANCELLED: "Cancelada",
+  CANCELADA: "Cancelada",
   EXPIRED: "Expirada",
   EXPIRADA: "Expirada",
 };
 
 const statusTone: Record<string, string> = {
   PENDING: "warning",
+  PENDENTE: "warning",
   APPROVED: "success",
+  APROVADA: "success",
   REJECTED: "danger",
+  RECUSADA: "danger",
   CANCELLED: "muted",
+  CANCELADA: "muted",
   EXPIRED: "danger",
   EXPIRADA: "danger",
 };
+const approvalDeadlineMinutes = 120;
 
 const statusFilters = [
   { value: "ALL", label: "Todas" },
@@ -90,24 +102,45 @@ function formatDate(value?: string | Date) {
   return `${day}/${month}/${year}`;
 }
 
-function formatTime(value?: string) {
+function formatTime(value?: string | Date) {
   if (!value) return "--:--";
+  if (value instanceof Date) return value.toISOString().split("T")[1]?.slice(0, 5) || "--:--";
   if (value.includes("T")) return value.split("T")[1]?.slice(0, 5) || "--:--";
   return value.slice(0, 5);
 }
 
+function normalizeStatus(status?: string) {
+  if (status === "PENDENTE") return "PENDING";
+  if (status === "APROVADA") return "APPROVED";
+  if (status === "RECUSADA") return "REJECTED";
+  if (status === "CANCELADA") return "CANCELLED";
+  if (status === "EXPIRADA") return "EXPIRED";
+  return status || "PENDING";
+}
+
+function requestDateValue(request: ReservationRequest) {
+  return request.date || request.startAt || request.startsAt;
+}
+
+function requestStartValue(request: ReservationRequest) {
+  return request.startTime || request.startAt || request.startsAt;
+}
+
+function requestEndValue(request: ReservationRequest) {
+  return request.endTime || request.endAt || request.endsAt;
+}
+
 function isExpired(request: ReservationRequest, now: number) {
   if (!now) return false;
-  if ((request.status || "PENDING") !== "PENDING") return false;
-  const date = dateInputValue(request.date);
-  const start = formatTime(request.startTime || request.startsAt);
+  if (normalizeStatus(request.status) !== "PENDING") return false;
+  const date = dateInputValue(requestDateValue(request));
+  const start = formatTime(requestStartValue(request));
   if (!date || start === "--:--") return false;
-  return new Date(`${date}T${start}:00`).getTime() - now <= 60 * 60 * 1000;
+  return new Date(`${date}T${start}:00`).getTime() - now <= approvalDeadlineMinutes * 60 * 1000;
 }
 
 function effectiveStatus(request: ReservationRequest, now: number) {
-  const status = request.status || "PENDING";
-  if (status === "EXPIRADA") return "EXPIRED";
+  const status = normalizeStatus(request.status);
   return isExpired(request, now) ? "EXPIRED" : status;
 }
 
@@ -143,8 +176,8 @@ export function MyReservationsPageView({
 
   const sortedReservations = useMemo(() => {
     return [...allReservations].sort((a, b) => {
-      const dateA = `${dateInputValue(a.date)} ${formatTime(a.startTime || a.startsAt)}`;
-      const dateB = `${dateInputValue(b.date)} ${formatTime(b.startTime || b.startsAt)}`;
+      const dateA = `${dateInputValue(requestDateValue(a))} ${formatTime(requestStartValue(a))}`;
+      const dateB = `${dateInputValue(requestDateValue(b))} ${formatTime(requestStartValue(b))}`;
       return dateB.localeCompare(dateA);
     });
   }, [allReservations]);
@@ -163,7 +196,7 @@ export function MyReservationsPageView({
           entityName(request.discipline, ""),
           entityName(request.classGroup, ""),
           request.purpose || request.objective || "",
-          formatDate(request.date),
+          formatDate(requestDateValue(request)),
         ]
           .join(" ")
           .toLowerCase()
@@ -203,7 +236,7 @@ export function MyReservationsPageView({
           <AlertTriangle size={18} />
           <div>
             <strong>{expiredCount} solicitacao(oes) expirada(s)</strong>
-            <span>Elas nao foram aprovadas ate 1 hora antes do inicio e foram invalidadas automaticamente.</span>
+            <span>Elas nao foram aprovadas ate 2 horas antes do inicio e foram invalidadas automaticamente.</span>
           </div>
         </div>
       )}
@@ -242,9 +275,10 @@ export function MyReservationsPageView({
             const note =
               request.rejectionReason ||
               request.cancelReason ||
+              request.decisionNote ||
               request.observation ||
               request.reason ||
-              (status === "EXPIRED" ? "Solicitacao expirada por falta de aprovacao dentro do prazo minimo." : "");
+              (status === "EXPIRED" ? "Solicitacao expirada por falta de aprovacao ate 2 horas antes do inicio." : "");
 
             return (
               <article className="my-reservation-card" key={request.id}>
@@ -262,11 +296,11 @@ export function MyReservationsPageView({
                 <div className="reservation-meta-row">
                   <span>
                     <CalendarDays size={15} />
-                    {formatDate(request.date)}
+                    {formatDate(requestDateValue(request))}
                   </span>
                   <span>
                     <Clock3 size={15} />
-                    {formatTime(request.startTime || request.startsAt)} - {formatTime(request.endTime || request.endsAt)}
+                    {formatTime(requestStartValue(request))} - {formatTime(requestEndValue(request))}
                   </span>
                 </div>
 

@@ -36,6 +36,7 @@ npm run db:push
 npm run db:seed
 ```
 
+
 5. Rode o projeto:
 
 ```bash

@@ -1,47 +1,28 @@
 "use server";
 
 export async function expireStaleReservationRequests() {
-  const pendingRequests = await prisma.$queryRawUnsafe<
-    Array<{ id: string; date: string | Date; startTime: string | Date }>
-  >(
-    `SELECT "id", "date", "startTime"
-     FROM "ReservationRequest"
-     WHERE "status" IN ('PENDING', 'PENDENTE')`
-  );
+  const expirationLimit = new Date(Date.now() + 2 * 60 * 60 * 1000);
+  const result = await prisma.reservationRequest.updateMany({
+    where: {
+      status: RequestStatus.PENDENTE,
+      startAt: {
+        lte: expirationLimit,
+      },
+    },
+    data: {
+      status: RequestStatus.EXPIRADA,
+      decisionNote:
+        "Solicitacao expirada por falta de aprovacao ate 2 horas antes do inicio.",
+    },
+  });
 
-  const now = Date.now();
-  const expiredIds = pendingRequests
-    .filter((request) => {
-      const date =
-        request.date instanceof Date
-          ? request.date.toISOString().slice(0, 10)
-          : String(request.date).slice(0, 10);
-      const rawStartTime = request.startTime instanceof Date ? request.startTime.toISOString() : String(request.startTime);
-      const startTime = rawStartTime.includes("T")
-        ? rawStartTime.split("T")[1]?.slice(0, 5)
-        : rawStartTime.slice(0, 5);
-
-      if (!date || !startTime) return false;
-
-      return new Date(`${date}T${startTime}:00`).getTime() - now <= 60 * 60 * 1000;
-    })
-    .map((request) => request.id);
-
-  if (expiredIds.length === 0) return 0;
-
-  const ids = expiredIds.map((id) => `'${String(id).replaceAll("'", "''")}'`).join(",");
-
-  await prisma.$executeRawUnsafe(
-    `UPDATE "ReservationRequest"
-     SET "status" = 'EXPIRADA'
-     WHERE "id" IN (${ids}) AND "status" IN ('PENDING', 'PENDENTE')`
-  );
+  if (result.count === 0) return 0;
 
   revalidatePath("/");
   revalidatePath("/painel");
   revalidatePath("/aprovacoes");
   revalidatePath("/minhas-reservas");
-  return expiredIds.length;
+  return result.count;
 }
 
 import { Prisma, RequestStatus, SpaceType, UserRole } from "@prisma/client";
