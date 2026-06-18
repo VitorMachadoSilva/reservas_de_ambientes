@@ -316,6 +316,13 @@ function FullscreenDashboardPanel({
   const upcomingRequests = requests.filter(
     (request) => minutesFromDateTime(request.startAt) > nowMinutes,
   );
+  const displayedRequestsCount = currentRequests.length + upcomingRequests.length;
+  const densityClass =
+    displayedRequestsCount > 16
+      ? "density-dense"
+      : displayedRequestsCount > 8
+        ? "density-compact"
+        : "density-comfortable";
   const occupiedSpaceIds = new Set(currentRequests.map((request) => request.space.id));
   const formattedDate = new Intl.DateTimeFormat("pt-BR", {
     day: "2-digit",
@@ -328,7 +335,10 @@ function FullscreenDashboardPanel({
   }).format(now);
 
   return (
-    <section className="fullscreen-dashboard" aria-label="Painel publico de reservas">
+    <section
+      className={`fullscreen-dashboard ${densityClass}`}
+      aria-label="Painel publico de reservas"
+    >
       <header className="fullscreen-dashboard-header">
         <div>
           <p className="eyebrow">Reservas de hoje</p>
@@ -387,7 +397,7 @@ function FullscreenDashboardPanel({
             {upcomingRequests.length === 0 && (
               <p className="fullscreen-empty-state">Nao ha novas reservas previstas para hoje.</p>
             )}
-            {upcomingRequests.slice(0, 8).map((request) => (
+            {upcomingRequests.map((request) => (
               <FullscreenReservationCard
                 key={request.id}
                 request={request}
@@ -422,7 +432,9 @@ function FullscreenReservationCard({
         </span>
         <h3>{request.space.name}</h3>
         <p>
-          {request.course.code} - {request.discipline.name} - {request.classGroup.name}
+          <strong>{request.course.code}</strong>
+          <span>{request.discipline.name}</span>
+          <small>{request.classGroup.name}</small>
         </p>
       </div>
       <div className="fullscreen-reservation-meta">

@@ -885,10 +885,20 @@ h3 {
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr);
   gap: 22px;
-  overflow: auto;
+  overflow: hidden;
   padding: 36px;
   background: var(--bg);
   color: var(--text);
+}
+
+.fullscreen-dashboard.density-compact {
+  gap: 16px;
+  padding: 26px;
+}
+
+.fullscreen-dashboard.density-dense {
+  gap: 12px;
+  padding: 20px;
 }
 
 .fullscreen-dashboard-header,
@@ -913,10 +923,26 @@ h3 {
   font-size: clamp(42px, 5vw, 72px);
 }
 
+.fullscreen-dashboard.density-compact .fullscreen-dashboard-header h1 {
+  font-size: clamp(34px, 4vw, 52px);
+}
+
+.fullscreen-dashboard.density-dense .fullscreen-dashboard-header h1 {
+  font-size: clamp(28px, 3.2vw, 40px);
+}
+
 .fullscreen-dashboard-header > div > span {
   color: var(--muted);
   font-size: 20px;
   font-weight: 800;
+}
+
+.fullscreen-dashboard.density-compact .fullscreen-dashboard-header > div > span {
+  font-size: 16px;
+}
+
+.fullscreen-dashboard.density-dense .fullscreen-dashboard-header > div > span {
+  font-size: 13px;
 }
 
 .fullscreen-dashboard-clock {
@@ -927,6 +953,14 @@ h3 {
   color: var(--primary-strong);
   font-size: clamp(48px, 8vw, 96px);
   line-height: 1;
+}
+
+.fullscreen-dashboard.density-compact .fullscreen-dashboard-clock strong {
+  font-size: clamp(40px, 6vw, 68px);
+}
+
+.fullscreen-dashboard.density-dense .fullscreen-dashboard-clock strong {
+  font-size: clamp(32px, 4.6vw, 50px);
 }
 
 .fullscreen-dashboard-clock button {
@@ -947,6 +981,11 @@ h3 {
   transform: translateY(-1px);
 }
 
+.fullscreen-dashboard.density-dense .fullscreen-dashboard-clock button {
+  width: 44px;
+  height: 44px;
+}
+
 .fullscreen-dashboard-summary {
   gap: 14px;
 }
@@ -961,6 +1000,16 @@ h3 {
   box-shadow: var(--shadow);
 }
 
+.fullscreen-dashboard.density-compact .fullscreen-dashboard-summary article {
+  min-height: 86px;
+  padding: 14px;
+}
+
+.fullscreen-dashboard.density-dense .fullscreen-dashboard-summary article {
+  min-height: 70px;
+  padding: 10px 12px;
+}
+
 .fullscreen-dashboard-summary span {
   display: block;
   color: var(--muted);
@@ -969,12 +1018,28 @@ h3 {
   text-transform: uppercase;
 }
 
+.fullscreen-dashboard.density-compact .fullscreen-dashboard-summary span {
+  font-size: 13px;
+}
+
+.fullscreen-dashboard.density-dense .fullscreen-dashboard-summary span {
+  font-size: 11px;
+}
+
 .fullscreen-dashboard-summary strong {
   display: block;
   margin-top: 8px;
   color: var(--primary-strong);
   font-size: 54px;
   line-height: 1;
+}
+
+.fullscreen-dashboard.density-compact .fullscreen-dashboard-summary strong {
+  font-size: 40px;
+}
+
+.fullscreen-dashboard.density-dense .fullscreen-dashboard-summary strong {
+  font-size: 30px;
 }
 
 .fullscreen-dashboard-grid {
@@ -988,11 +1053,21 @@ h3 {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   min-width: 0;
+  min-height: 0;
+  overflow: hidden;
   padding: 22px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface);
   box-shadow: var(--shadow);
+}
+
+.fullscreen-dashboard.density-compact .fullscreen-dashboard-grid > section {
+  padding: 16px;
+}
+
+.fullscreen-dashboard.density-dense .fullscreen-dashboard-grid > section {
+  padding: 12px;
 }
 
 .fullscreen-section-heading {
@@ -1005,6 +1080,14 @@ h3 {
   font-size: 32px;
 }
 
+.fullscreen-dashboard.density-compact .fullscreen-section-heading h2 {
+  font-size: 26px;
+}
+
+.fullscreen-dashboard.density-dense .fullscreen-section-heading h2 {
+  font-size: 21px;
+}
+
 .fullscreen-section-heading span {
   color: var(--muted);
   font-size: 16px;
@@ -1014,18 +1097,44 @@ h3 {
 .fullscreen-reservation-list {
   display: grid;
   align-content: start;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
   gap: 14px;
   min-height: 0;
-  overflow: auto;
+  overflow: hidden;
+}
+
+.fullscreen-dashboard.density-compact .fullscreen-reservation-list {
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 10px;
+}
+
+.fullscreen-dashboard.density-dense .fullscreen-reservation-list {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px;
 }
 
 .fullscreen-reservation-card {
-  gap: 18px;
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
   padding: 18px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--field-bg);
   box-shadow: inset 5px 0 0 var(--primary);
+}
+
+.fullscreen-dashboard.density-compact .fullscreen-reservation-card {
+  gap: 8px;
+  padding: 12px;
+  box-shadow: inset 4px 0 0 var(--primary);
+}
+
+.fullscreen-dashboard.density-dense .fullscreen-reservation-card {
+  gap: 6px;
+  padding: 9px 10px;
+  box-shadow: inset 3px 0 0 var(--primary);
 }
 
 .fullscreen-reservation-card.programada {
@@ -1037,7 +1146,7 @@ h3 {
 }
 
 .fullscreen-reservation-time {
-  flex: 0 0 150px;
+  flex: none;
   gap: 8px;
   color: var(--primary-strong);
 }
@@ -1047,9 +1156,31 @@ h3 {
   white-space: nowrap;
 }
 
+.fullscreen-dashboard.density-compact .fullscreen-reservation-time strong {
+  font-size: 18px;
+}
+
+.fullscreen-dashboard.density-dense .fullscreen-reservation-time strong {
+  font-size: 15px;
+}
+
 .fullscreen-reservation-main {
   flex: 1;
   min-width: 0;
+}
+
+.fullscreen-dashboard.density-compact .fullscreen-reservation-main .status-pill {
+  min-height: 22px;
+  margin-bottom: 2px;
+  padding: 0 8px;
+  font-size: 10px;
+}
+
+.fullscreen-dashboard.density-dense .fullscreen-reservation-main .status-pill {
+  min-height: 18px;
+  margin-bottom: 1px;
+  padding: 0 6px;
+  font-size: 9px;
 }
 
 .fullscreen-reservation-main h3 {
@@ -1058,20 +1189,128 @@ h3 {
   font-size: 28px;
 }
 
+.fullscreen-dashboard.density-compact .fullscreen-reservation-main h3 {
+  margin-top: 4px;
+  font-size: 21px;
+}
+
+.fullscreen-dashboard.density-dense .fullscreen-reservation-main h3 {
+  margin-top: 3px;
+  font-size: 17px;
+}
+
 .fullscreen-reservation-main p {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
   margin: 6px 0 0;
   color: var(--muted);
   font-size: 18px;
   font-weight: 750;
 }
 
+.fullscreen-reservation-main p strong,
+.fullscreen-reservation-main p span,
+.fullscreen-reservation-main p small {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  border-radius: 999px;
+}
+
+.fullscreen-reservation-main p strong {
+  padding: 0 10px;
+  background: var(--primary);
+  color: var(--on-primary);
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.fullscreen-reservation-main p span {
+  padding: 0 10px;
+  background: var(--primary-faint);
+  color: var(--primary-strong);
+  font-size: 17px;
+  font-weight: 900;
+}
+
+.fullscreen-reservation-main p small {
+  padding: 0 9px;
+  background: var(--surface-soft);
+  color: var(--chip-text);
+  font-size: 14px;
+  font-weight: 850;
+}
+
+.fullscreen-dashboard.density-compact .fullscreen-reservation-main p {
+  margin-top: 4px;
+  font-size: 14px;
+}
+
+.fullscreen-dashboard.density-compact .fullscreen-reservation-main p {
+  gap: 6px;
+}
+
+.fullscreen-dashboard.density-compact .fullscreen-reservation-main p strong,
+.fullscreen-dashboard.density-compact .fullscreen-reservation-main p span,
+.fullscreen-dashboard.density-compact .fullscreen-reservation-main p small {
+  min-height: 23px;
+  padding-inline: 8px;
+}
+
+.fullscreen-dashboard.density-compact .fullscreen-reservation-main p strong,
+.fullscreen-dashboard.density-compact .fullscreen-reservation-main p span {
+  font-size: 13px;
+}
+
+.fullscreen-dashboard.density-compact .fullscreen-reservation-main p small {
+  font-size: 11px;
+}
+
+.fullscreen-dashboard.density-dense .fullscreen-reservation-main p {
+  margin-top: 3px;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.fullscreen-dashboard.density-dense .fullscreen-reservation-main p strong,
+.fullscreen-dashboard.density-dense .fullscreen-reservation-main p span,
+.fullscreen-dashboard.density-dense .fullscreen-reservation-main p small {
+  min-height: 19px;
+  max-width: 100%;
+  overflow: hidden;
+  padding-inline: 6px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fullscreen-dashboard.density-dense .fullscreen-reservation-main p strong,
+.fullscreen-dashboard.density-dense .fullscreen-reservation-main p span {
+  font-size: 10px;
+}
+
+.fullscreen-dashboard.density-dense .fullscreen-reservation-main p small {
+  font-size: 9px;
+}
+
 .fullscreen-reservation-meta {
-  display: grid;
-  flex: 0 0 190px;
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
   gap: 8px;
   color: var(--chip-text);
   font-size: 16px;
   font-weight: 800;
+}
+
+.fullscreen-dashboard.density-compact .fullscreen-reservation-meta {
+  font-size: 13px;
+}
+
+.fullscreen-dashboard.density-dense .fullscreen-reservation-meta {
+  gap: 6px;
+  font-size: 11px;
 }
 
 .fullscreen-reservation-meta span {
