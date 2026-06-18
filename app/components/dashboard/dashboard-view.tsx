@@ -25,6 +25,7 @@ import type {
 } from "../reservations/types";
 
 export function DashboardPageView({
+  currentUser,
   initialDate,
   reservationRequests,
   spaces,
@@ -78,6 +79,7 @@ export function DashboardPageView({
   const filteredPendingRequests = todayRequests.filter(
     (request) => request.status === "PENDENTE",
   );
+  const canAccessApprovals = ["APROVADOR", "ADMIN"].includes(currentUser.role);
 
   return (
     <>
@@ -132,13 +134,15 @@ export function DashboardPageView({
                 <small>Encontrar ambiente e enviar para aprovacao</small>
               </span>
             </Link>
-            <Link className="quick-action" href="/aprovacoes">
-              <Check size={18} />
-              <span>
-                <strong>Fila de aprovacao</strong>
-                <small>{pendingRequests.length} solicitacao(oes) aguardando decisao</small>
-              </span>
-            </Link>
+            {canAccessApprovals && (
+              <Link className="quick-action" href="/aprovacoes">
+                <Check size={18} />
+                <span>
+                  <strong>Fila de aprovacao</strong>
+                  <small>{pendingRequests.length} solicitacao(oes) aguardando decisao</small>
+                </span>
+              </Link>
+            )}
             <Link className="quick-action" href="/agenda">
               <CalendarDays size={18} />
               <span>
