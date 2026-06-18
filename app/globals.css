@@ -844,17 +844,38 @@ h3 {
   box-shadow: var(--shadow);
 }
 
+.dashboard-display-control .eyebrow {
+  color: var(--muted);
+}
+
 .dashboard-display-control h2 {
   font-size: 18px;
 }
 
-.dashboard-display-control .secondary-button {
+.dashboard-display-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
   min-height: 42px;
+  padding: 0 14px;
+  border: 1px solid rgba(37, 111, 92, 0.24);
+  border-radius: 8px;
+  background: var(--primary-faint);
+  color: var(--primary-strong);
+  font-weight: 850;
   white-space: nowrap;
+}
+
+.dashboard-display-button:hover {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  transform: translateY(-1px);
+}
+
+.dashboard-display-button:focus-visible {
+  outline: 3px solid rgba(37, 111, 92, 0.18);
+  outline-offset: 2px;
 }
 
 .fullscreen-dashboard {
@@ -866,8 +887,8 @@ h3 {
   gap: 22px;
   overflow: auto;
   padding: 36px;
-  background: #f4f7f5;
-  color: #14211b;
+  background: var(--bg);
+  color: var(--text);
 }
 
 .fullscreen-dashboard-header,
@@ -893,7 +914,7 @@ h3 {
 }
 
 .fullscreen-dashboard-header > div > span {
-  color: #66746d;
+  color: var(--muted);
   font-size: 20px;
   font-weight: 800;
 }
@@ -903,7 +924,7 @@ h3 {
 }
 
 .fullscreen-dashboard-clock strong {
-  color: #174c40;
+  color: var(--primary-strong);
   font-size: clamp(48px, 8vw, 96px);
   line-height: 1;
 }
@@ -913,10 +934,17 @@ h3 {
   width: 56px;
   height: 56px;
   place-items: center;
-  border: 1px solid #dce5df;
+  border: 1px solid var(--line);
   border-radius: 8px;
-  background: #ffffff;
-  color: #174c40;
+  background: var(--surface);
+  color: var(--primary-strong);
+  box-shadow: var(--shadow);
+}
+
+.fullscreen-dashboard-clock button:hover {
+  border-color: var(--primary);
+  background: var(--primary-faint);
+  transform: translateY(-1px);
 }
 
 .fullscreen-dashboard-summary {
@@ -927,14 +955,15 @@ h3 {
   flex: 1;
   min-height: 112px;
   padding: 20px;
-  border: 1px solid #dce5df;
+  border: 1px solid var(--line);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--surface);
+  box-shadow: var(--shadow);
 }
 
 .fullscreen-dashboard-summary span {
   display: block;
-  color: #66746d;
+  color: var(--muted);
   font-size: 16px;
   font-weight: 850;
   text-transform: uppercase;
@@ -943,7 +972,7 @@ h3 {
 .fullscreen-dashboard-summary strong {
   display: block;
   margin-top: 8px;
-  color: #174c40;
+  color: var(--primary-strong);
   font-size: 54px;
   line-height: 1;
 }
@@ -960,9 +989,10 @@ h3 {
   grid-template-rows: auto minmax(0, 1fr);
   min-width: 0;
   padding: 22px;
-  border: 1px solid #dce5df;
+  border: 1px solid var(--line);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--surface);
+  box-shadow: var(--shadow);
 }
 
 .fullscreen-section-heading {
@@ -976,7 +1006,7 @@ h3 {
 }
 
 .fullscreen-section-heading span {
-  color: #66746d;
+  color: var(--muted);
   font-size: 16px;
   font-weight: 800;
 }
@@ -992,24 +1022,24 @@ h3 {
 .fullscreen-reservation-card {
   gap: 18px;
   padding: 18px;
-  border: 1px solid #dce5df;
+  border: 1px solid var(--line);
   border-radius: 8px;
-  background: #fbfdfc;
-  box-shadow: inset 5px 0 0 #256f5c;
+  background: var(--field-bg);
+  box-shadow: inset 5px 0 0 var(--primary);
 }
 
 .fullscreen-reservation-card.programada {
-  box-shadow: inset 5px 0 0 #277657;
+  box-shadow: inset 5px 0 0 var(--success);
 }
 
 .fullscreen-reservation-card.finalizada {
-  box-shadow: inset 5px 0 0 #66746d;
+  box-shadow: inset 5px 0 0 var(--muted);
 }
 
 .fullscreen-reservation-time {
   flex: 0 0 150px;
   gap: 8px;
-  color: #174c40;
+  color: var(--primary-strong);
 }
 
 .fullscreen-reservation-time strong {
@@ -1030,7 +1060,7 @@ h3 {
 
 .fullscreen-reservation-main p {
   margin: 6px 0 0;
-  color: #66746d;
+  color: var(--muted);
   font-size: 18px;
   font-weight: 750;
 }
@@ -1039,7 +1069,7 @@ h3 {
   display: grid;
   flex: 0 0 190px;
   gap: 8px;
-  color: #3c5149;
+  color: var(--chip-text);
   font-size: 16px;
   font-weight: 800;
 }
@@ -1051,10 +1081,10 @@ h3 {
 .fullscreen-empty-state {
   margin: 0;
   padding: 26px;
-  border: 1px dashed #dce5df;
+  border: 1px dashed var(--line);
   border-radius: 8px;
-  background: #eef4f1;
-  color: #66746d;
+  background: var(--surface-soft);
+  color: var(--muted);
   font-size: 20px;
   font-weight: 800;
 }
@@ -2725,7 +2755,7 @@ textarea:focus {
     flex-direction: column;
   }
 
-  .dashboard-display-control .secondary-button {
+  .dashboard-display-button {
     width: 100%;
   }
 
@@ -4552,6 +4582,8 @@ textarea:focus {
   .segmented-group button:hover,
   .step-tabs button.active,
   .my-reservations-status-tabs button.active,
+  .dashboard-display-button,
+  .dashboard-display-button:hover,
   .quick-action.primary,
   .selected-space,
   .space-card.selected
@@ -4559,6 +4591,49 @@ textarea:focus {
   border-color: rgba(113, 201, 173, 0.46);
   background: var(--primary-soft);
   color: var(--primary-strong);
+}
+
+[data-theme="dark"] :is(
+  .dashboard-display-control,
+  .fullscreen-dashboard-summary article,
+  .fullscreen-dashboard-grid > section
+) {
+  border-color: var(--line);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow);
+}
+
+[data-theme="dark"] .dashboard-display-button {
+  border-color: rgba(113, 201, 173, 0.38);
+}
+
+[data-theme="dark"] .dashboard-display-button:focus-visible {
+  outline-color: rgba(113, 201, 173, 0.3);
+}
+
+[data-theme="dark"] :is(.fullscreen-dashboard-clock button, .fullscreen-reservation-card) {
+  border-color: var(--line);
+  background: var(--field-bg);
+  color: var(--text);
+}
+
+[data-theme="dark"] .fullscreen-dashboard-clock button:hover {
+  border-color: rgba(113, 201, 173, 0.46);
+  background: var(--primary-soft);
+  color: var(--primary-strong);
+}
+
+[data-theme="dark"] .fullscreen-reservation-card.em-andamento {
+  border-color: rgba(113, 201, 173, 0.42);
+}
+
+[data-theme="dark"] .fullscreen-reservation-card.programada {
+  border-color: rgba(123, 210, 174, 0.34);
+}
+
+[data-theme="dark"] .fullscreen-reservation-card.finalizada {
+  border-color: rgba(159, 177, 170, 0.34);
 }
 
 [data-theme="dark"] :is(

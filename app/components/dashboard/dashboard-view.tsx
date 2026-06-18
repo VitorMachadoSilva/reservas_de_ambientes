@@ -131,7 +131,11 @@ export function DashboardPageView({
           <p className="eyebrow">Modo exibicao</p>
           <h2>Painel em tempo real</h2>
         </div>
-        <button type="button" className="secondary-button" onClick={openFullscreenPanel}>
+        <button
+          type="button"
+          className="dashboard-display-button"
+          onClick={openFullscreenPanel}
+        >
           <Maximize2 size={18} />
           Tela cheia
         </button>
